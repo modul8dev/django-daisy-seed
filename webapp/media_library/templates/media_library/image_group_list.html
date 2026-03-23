@@ -28,45 +28,45 @@
         {% if groups %}
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             {% for group in groups %}
-            <div class="group/card flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-                {# Image collage — top portion of card #}
-                {% with images=group.images.all %}
-                <div class="relative w-full aspect-square bg-zinc-100 overflow-hidden">
+            <a href="{% url 'media_library:image_group_edit' group.pk %}"
+               up-layer="new"
+               up-mode="modal"
+               up-history="false"
+               up-on-accepted="up.reload('.image-group-list')"
+               class="group/card flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
+                {# Image thumbnails — flex wrap inside card #}
+                {% with images=group.images.all count=group.images.count %}
+                <div class="h-64 p-4 pb-3 border-b border-zinc-100">
                     {% if images %}
-                        {% with count=group.images.count %}
-                        {% if count == 1 %}
-                        <img src="{{ images.0.image.url }}" alt=""
-                             class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-105">
-                        {% elif count == 2 %}
-                        <div class="absolute inset-0 grid grid-cols-2 gap-px">
-                            {% for img in images|slice:":2" %}
-                            <img src="{{ img.image.url }}" alt="" class="w-full h-full object-cover">
-                            {% endfor %}
-                        </div>
-                        {% elif count == 3 %}
-                        <div class="absolute inset-0 grid grid-cols-2 gap-px">
-                            <img src="{{ images.0.image.url }}" alt="" class="w-full h-full object-cover row-span-2">
-                            <img src="{{ images.1.image.url }}" alt="" class="w-full h-full object-cover">
-                            <img src="{{ images.2.image.url }}" alt="" class="w-full h-full object-cover">
-                        </div>
-                        {% else %}
-                        <div class="absolute inset-0 grid grid-cols-2 gap-px">
-                            {% for img in images|slice:":4" %}
-                            <div class="relative overflow-hidden">
-                                <img src="{{ img.image.url }}" alt="" class="absolute inset-0 w-full h-full object-cover">
-                                {% if forloop.last and count > 4 %}
-                                <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <span class="text-white text-lg font-bold">+{{ count|add:"-4" }}</span>
-                                </div>
-                                {% endif %}
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        {% endwith %}
+                    {% if count == 1 %}
+                    <div class="grid grid-cols-1 grid-rows-1 gap-2 h-full">
+                    {% elif count == 2 %}
+                    <div class="grid grid-cols-2 grid-rows-1 gap-2 h-full">
+                    {% elif count == 3 %}
+                    <div class="grid grid-cols-3 grid-rows-1 gap-2 h-full">
+                    {% elif count == 4 %}
+                    <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full">
                     {% else %}
-                    <div class="absolute inset-0 flex flex-col items-center justify-center text-zinc-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="size-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                    <div class="grid grid-cols-4 grid-rows-2 gap-2 h-full">
+                    {% endif %}
+                        {% for img in images|slice:":8" %}
+                            {% if forloop.counter == 8 and count > 8 %}
+                            <div class="relative rounded-lg overflow-hidden bg-zinc-100">
+                                <img src="{{ img.image.url }}" alt="" class="absolute inset-0 w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <span class="text-white text-xs font-bold">+{{ count|add:"-7" }}</span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="rounded-lg overflow-hidden bg-zinc-100">
+                                <img src="{{ img.image.url }}" alt="" class="w-full h-full object-cover">
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="flex flex-col items-center justify-center h-full text-zinc-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                         </svg>
                         <span class="text-xs mt-1 text-zinc-400">No images</span>
@@ -81,19 +81,12 @@
                     {% if group.description %}
                     <p class="text-xs text-zinc-500 truncate mt-0.5">{{ group.description }}</p>
                     {% endif %}
-                    <div class="flex items-center gap-2 mt-4">
-                        <a href="{% url 'media_library:image_group_edit' group.pk %}"
-                           up-layer="new"
-                           up-mode="modal"
-                           up-history="false"
-                           up-on-accepted="up.reload('.image-group-list')"
-                           class="flex-1 inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
-                            Edit
-                        </a>
+                    <div class="flex items-center justify-end mt-4">
                         <form method="post"
                               action="{% url 'media_library:image_group_delete' group.pk %}"
                               up-submit
-                              up-confirm="Delete &quot;{{ group.title }}&quot;? This will also delete all images in this group.">
+                              up-confirm="Delete &quot;{{ group.title }}&quot;? This will also delete all images in this group."
+                              onclick="event.stopPropagation()">
                             {% csrf_token %}
                             <button type="submit" aria-label="Delete"
                                     class="inline-flex size-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500">
@@ -104,7 +97,7 @@
                         </form>
                     </div>
                 </div>
-            </div>
+            </a>
             {% endfor %}
         </div>
         {% else %}
