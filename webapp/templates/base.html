@@ -69,19 +69,24 @@
                     <div class="dropdown dropdown-end ml-1">
                         <button type="button" tabindex="0"
                                 class="flex size-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
-                            U
+                            {{ user.email|first|upper }}
                         </button>
                         <ul tabindex="0"
                             class="dropdown-content z-50 mt-2 w-48 rounded-xl border border-zinc-100 bg-white p-1.5 shadow-xl shadow-zinc-900/10">
                             <li>
                                 <div class="px-3 py-2">
-                                    <p class="text-xs font-medium text-zinc-900">User</p>
-                                    <p class="text-xs text-zinc-400">user@example.com</p>
+                                    <p class="text-xs font-medium text-zinc-900">{{ user.get_full_name|default:user.email }}</p>
+                                    <p class="text-xs text-zinc-400">{{ user.email }}</p>
                                 </div>
                             </li>
                             <li><hr class="my-1 border-zinc-100"></li>
                             <li><a href="/settings" class="flex rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Settings</a></li>
-                            <li><a href="#" class="flex rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Sign out</a></li>
+                            <li>
+                                <form method="post" action="{% url 'account_logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="flex w-full rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Sign out</button>
+                                </form>
+                            </li>
                         </ul>
                     </div>
 
@@ -186,11 +191,11 @@
                 <div class="shrink-0 border-t border-zinc-100 px-4 py-3">
                     <div class="flex items-center gap-3">
                         <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
-                            U
+                            {{ user.email|first|upper }}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate text-xs font-medium text-zinc-900">User</p>
-                            <p class="truncate text-xs text-zinc-400">user@example.com</p>
+                            <p class="truncate text-xs font-medium text-zinc-900">{{ user.get_full_name|default:user.email }}</p>
+                            <p class="truncate text-xs text-zinc-400">{{ user.email }}</p>
                         </div>
                         <a href="/settings"
                            class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600">

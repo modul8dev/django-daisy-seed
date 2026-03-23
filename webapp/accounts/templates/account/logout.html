@@ -1,0 +1,17 @@
+{% extends "account/base_auth.html" %}
+
+{% block title %}Sign Out{% endblock %}
+
+{% block card %}
+<h2 class="mb-2 text-center text-lg font-semibold text-zinc-900">Sign out</h2>
+<p class="mb-6 text-center text-sm text-zinc-500">Are you sure you want to sign out?</p>
+
+<form method="post" action="{% url 'account_logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary btn-block rounded-lg text-sm">Sign out</button>
+</form>
+{% endblock %}
+
+{% block below_card %}
+<a href="/" class="font-medium text-indigo-600 hover:text-indigo-500">Back to app</a>
+{% endblock %}

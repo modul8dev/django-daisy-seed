@@ -3,13 +3,65 @@
 {% block header_title %}Settings{% endblock %}
 
 {% block content %}
-<div>
+<div class="max-w-2xl">
     <div class="mb-8">
-        <h2 class="text-lg font-semibold text-zinc-900">Settings</h2>
-        <p class="mt-1 text-sm text-zinc-500">Manage your workspace preferences and account settings.</p>
+        <h2 class="text-lg font-semibold text-zinc-900">Profile</h2>
+        <p class="mt-1 text-sm text-zinc-500">Manage your personal information and account settings.</p>
     </div>
-    <div class="rounded-2xl border border-zinc-200 bg-white p-8 text-sm text-zinc-500">
-        Settings content coming soon.
+
+    <div class="rounded-2xl border border-zinc-200 bg-white p-8">
+        <!-- Read-only email -->
+        <div class="mb-6">
+            <label class="mb-1 block text-sm font-medium text-zinc-700">Email</label>
+            <div class="flex h-12 items-center rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-500">
+                {{ user.email }}
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'settings' %}">
+            {% csrf_token %}
+
+            <div class="grid gap-6 sm:grid-cols-2">
+                <div>
+                    <label for="{{ form.first_name.id_for_label }}" class="mb-1 block text-sm font-medium text-zinc-700">First name</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ form.first_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.last_name.id_for_label }}" class="mb-1 block text-sm font-medium text-zinc-700">Last name</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ form.last_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <label for="{{ form.company_name.id_for_label }}" class="mb-1 block text-sm font-medium text-zinc-700">Company name</label>
+                {{ form.company_name }}
+                {% if form.company_name.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ form.company_name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mt-8 flex items-center justify-end gap-3 border-t border-zinc-100 pt-6">
+                <button type="submit" class="btn btn-primary rounded-lg text-sm">Save changes</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Change password link -->
+    <div class="mt-6 rounded-2xl border border-zinc-200 bg-white p-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-medium text-zinc-900">Password</h3>
+                <p class="mt-1 text-sm text-zinc-500">Change your account password.</p>
+            </div>
+            <a href="{% url 'account_change_password' %}" class="btn btn-outline btn-sm rounded-lg text-sm">Change password</a>
+        </div>
     </div>
 </div>
 {% endblock %}
