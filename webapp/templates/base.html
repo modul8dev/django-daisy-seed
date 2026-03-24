@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'css/src/output.css' %}">
     <title>{% block title %}Workspace{% endblock %}</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/unpoly@3.12.1/unpoly.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/unpoly@3.12.1/unpoly.min.css">
     <script>
@@ -160,6 +161,15 @@
                                 Media Library
                             </a>
                         </li>
+                        <li>
+                            <a href="/social-media/" up-follow
+                               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 [&.menu-active]:bg-indigo-50 [&.menu-active]:text-indigo-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                                </svg>
+                                Social Media
+                            </a>
+                        </li>
                     </ul>
 
                     <p class="mb-2 mt-6 px-3 text-xs font-medium uppercase tracking-wider text-zinc-400">Account</p>
@@ -215,6 +225,7 @@
     <!-- /drawer -->
 
     <script src="{% static 'js/media_library.js' %}"></script>
+    <script src="{% static 'js/social_media.js' %}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
