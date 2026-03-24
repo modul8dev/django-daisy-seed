@@ -9,4 +9,5 @@ urlpatterns = [
     path('create/', views.post_create, name='post_create'),
     path('<int:pk>/edit/', views.post_edit, name='post_edit'),
     path('<int:pk>/delete/', views.post_delete, name='post_delete'),
+    path('image-picker/', views.image_picker, name='image_picker'),
 ]

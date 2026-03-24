@@ -104,53 +104,31 @@
                     <div class="mb-5">
                         <p class="block text-sm font-medium text-zinc-700 mb-3">Shared Images</p>
                         {{ media_formset.management_form }}
+                        <div id="shared-media-inputs"></div>
 
-                        <div id="shared-media-container" class="space-y-3"
-                             @click="$event.target.closest('.remove-media-row') && removeSharedMedia($event.target.closest('.remove-media-row'))">
-                            {% for media_form in media_formset %}
-                            <div class="shared-media-row flex items-center gap-3 rounded-lg border border-zinc-200 p-3">
-                                {% for hidden in media_form.hidden_fields %}{{ hidden }}{% endfor %}
-                                <div class="flex-1">
-                                    <label class="text-xs text-zinc-500 mb-1 block">Image</label>
-                                    {{ media_form.image }}
-                                    {% if media_form.image.errors %}
-                                    <p class="mt-1 text-xs text-red-600">{{ media_form.image.errors.0 }}</p>
-                                    {% endif %}
+                        {# Thumbnail grid #}
+                        <div class="flex flex-wrap gap-2 mb-3" id="shared-media-thumbnails">
+                            <template x-for="img in sharedImages" :key="img.imageId">
+                                <div class="relative group">
+                                    <img :src="img.url" class="h-16 w-16 object-cover rounded-lg border border-zinc-200" />
+                                    <button type="button"
+                                            @click="removeSharedImage(img.imageId)"
+                                            class="absolute -top-1.5 -right-1.5 hidden group-hover:flex items-center justify-center bg-red-500 rounded-full w-5 h-5 text-white hover:bg-red-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
                                 </div>
-                                {{ media_form.sort_order }}
-                                {% if media_form.instance.pk %}
-                                <label class="flex items-center gap-1.5 text-xs text-red-500 cursor-pointer">
-                                    {{ media_form.DELETE }}
-                                    Remove
-                                </label>
-                                {% else %}
-                                <button type="button" class="remove-media-row text-xs text-zinc-400 hover:text-red-500">Remove</button>
-                                {% endif %}
-                            </div>
-                            {% endfor %}
+                            </template>
+                            <p x-show="sharedImages.length === 0" class="text-xs text-zinc-400 self-center">No images added yet</p>
                         </div>
 
-                        {# Empty form template for JS cloning #}
-                        <template id="shared-media-empty">
-                            <div class="shared-media-row flex items-center gap-3 rounded-lg border border-zinc-200 p-3">
-                                {% with media_formset.empty_form as ef %}
-                                {% for hidden in ef.hidden_fields %}{{ hidden }}{% endfor %}
-                                <div class="flex-1">
-                                    <label class="text-xs text-zinc-500 mb-1 block">Image</label>
-                                    {{ ef.image }}
-                                </div>
-                                {{ ef.sort_order }}
-                                {% endwith %}
-                                <button type="button" class="remove-media-row text-xs text-zinc-400 hover:text-red-500" @click="removeSharedMedia($el)">Remove</button>
-                            </div>
-                        </template>
-
-                        <button type="button" id="add-shared-media" @click="addSharedMedia()"
-                                class="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-700">
+                        <button type="button" @click="openPicker('shared')"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-indigo-400 hover:text-indigo-600">
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                             </svg>
-                            Add image
+                            Add images
                         </button>
                     </div>
                 </div>
@@ -202,14 +180,28 @@
                             </label>
                         </div>
                         <div class="platform-override-media" x-show="overrideMediaShown['{{ platform }}']">
-                            <p class="text-xs text-zinc-500 mb-2">Override images for this platform only.</p>
-                            {# Override media rows would be added here via JS for new posts, or rendered on edit #}
-                            <div class="platform-override-media-list space-y-2" data-platform="{{ platform }}"></div>
-                            <button type="button" class="add-platform-media mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-700" data-platform="{{ platform }}">
+                            {# Thumbnail grid #}
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <template x-for="img in (platformImages['{{ platform }}'] || [])" :key="img.imageId">
+                                    <div class="relative group">
+                                        <img :src="img.url" class="h-16 w-16 object-cover rounded-lg border border-zinc-200" />
+                                        <button type="button"
+                                                @click="removePlatformImage('{{ platform }}', img.imageId)"
+                                                class="absolute -top-1.5 -right-1.5 hidden group-hover:flex items-center justify-center bg-red-500 rounded-full w-5 h-5 text-white hover:bg-red-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                                <p x-show="!(platformImages['{{ platform }}'] || []).length" class="text-xs text-zinc-400 self-center">No override images</p>
+                            </div>
+                            <button type="button" @click="openPicker('platform:{{ platform }}')"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-indigo-400 hover:text-indigo-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                                 </svg>
-                                Add override image
+                                Add images
                             </button>
                         </div>
                     </div>
@@ -243,7 +235,9 @@
                         Write something above to see a preview…
                     </p>
                     <div class="mt-3 flex flex-wrap gap-1.5" id="preview-images">
-                        {# image thumbnails injected by JS #}
+                        <template x-for="img in previewImages()" :key="img.imageId">
+                            <img :src="img.url" class="h-12 w-12 object-cover rounded-lg border border-zinc-200" />
+                        </template>
                     </div>
                 </div>
             </div>
@@ -277,4 +271,12 @@
 
     </div>{# /body #}
 </div>
+
+{# ── JSON data for Alpine state ── #}
+{{ selected_shared_media|json_script:"selected-shared-media-json" }}
+{{ selected_platform_media|json_script:"selected-platform-media-json" }}
+
+{# Hidden platform override media JSON field (synced by Alpine before submit) #}
+<input type="hidden" id="platform-override-media-json-input" name="platform_override_media_json" value="{}" form="post-form" />
+
 </main>

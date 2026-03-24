@@ -1,0 +1,113 @@
+<div id="image-picker" x-data="imagePicker()" class="flex flex-col w-full h-[82vh] max-h-[82vh]">
+
+    {{ groups_data|json_script:"picker-groups-data" }}
+    {{ selected_ids|json_script:"picker-selected-ids" }}
+    <input type="hidden" id="picker-target" value="{{ target }}">
+
+    {# Header #}
+    <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 shrink-0">
+        <h3 class="text-base font-semibold text-zinc-900">Select Images</h3>
+    </div>
+
+    {# Body #}
+    <div class="flex flex-1 overflow-hidden min-h-0">
+
+        {# Left: Group cards (main area) #}
+        <div class="flex-1 overflow-y-auto p-5">
+            <div x-show="groups.length === 0" class="flex items-center justify-center h-full text-sm text-zinc-400">
+                No image groups found. Add images in the Media Library.
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <template x-for="group in groups" :key="group.id">
+                    <button type="button"
+                            @click="selectGroup(group)"
+                            class="flex flex-col overflow-hidden rounded-xl border-2 text-left transition-all focus:outline-none"
+                            :class="currentGroupId === group.id
+                                ? 'border-indigo-500 ring-2 ring-indigo-100'
+                                : 'border-zinc-200 hover:border-indigo-300'">
+                        {# Group cover image #}
+                        <div class="relative aspect-video w-full bg-zinc-100 overflow-hidden shrink-0">
+                            <template x-if="group.images.length > 0">
+                                <img :src="group.images[0].url" class="w-full h-full object-cover" />
+                            </template>
+                            <div x-show="groupHasSelected(group)"
+                                 class="absolute inset-0 bg-indigo-500/20 flex items-end justify-end p-1">
+                                <div class="bg-indigo-500 rounded-full p-0.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <template x-if="group.images.length === 0">
+                                <div class="w-full h-full flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3 19.5h18M3 4.5h18"/>
+                                    </svg>
+                                </div>
+                            </template>
+                        </div>
+                        {# Group name + count #}
+                        <div class="px-3 py-2.5">
+                            <p class="text-sm font-medium text-zinc-900 truncate" x-text="group.title"></p>
+                            <p class="text-xs text-zinc-400 mt-0.5" x-text="group.images.length + ' image' + (group.images.length !== 1 ? 's' : '')"></p>
+                        </div>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        {# Right: Image thumbnails for selected group (sidebar) #}
+        <div class="w-56 shrink-0 border-l border-zinc-200 overflow-y-auto">
+            <template x-if="!currentGroupId">
+                <div class="flex items-center justify-center h-full p-4">
+                    <p class="text-xs text-zinc-400 text-center">Click a group to browse its images</p>
+                </div>
+            </template>
+            <template x-if="currentGroupId">
+                <div class="p-3">
+                    <p class="text-xs font-medium text-zinc-500 mb-2 truncate" x-text="currentGroupTitle()"></p>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <template x-for="img in currentImages()" :key="img.id">
+                            <button type="button"
+                                    @click="toggle(img.id)"
+                                    class="relative aspect-square overflow-hidden rounded-lg border-2 transition-all focus:outline-none"
+                                    :class="isSelected(img.id)
+                                        ? 'border-indigo-500 ring-1 ring-indigo-200'
+                                        : 'border-zinc-200 hover:border-indigo-300'">
+                                <img :src="img.url" class="w-full h-full object-cover" />
+                                <div x-show="isSelected(img.id)"
+                                     class="absolute inset-0 bg-indigo-500/20 flex items-end justify-end p-0.5">
+                                    <div class="bg-indigo-500 rounded-full p-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </button>
+                        </template>
+                        <p x-show="currentImages().length === 0"
+                           class="col-span-3 text-xs text-zinc-400 py-2 text-center">
+                            No images in this group.
+                        </p>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    {# Footer #}
+    <div class="flex items-center justify-between px-6 py-4 border-t border-zinc-200 shrink-0 bg-zinc-50">
+        <span class="text-sm text-zinc-500"
+              x-text="Object.values(selected).filter(v => v).length + ' image(s) selected'"></span>
+        <div class="flex items-center gap-2">
+            <button type="button" @click="cancel()"
+                    class="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                Cancel
+            </button>
+            <button type="button" @click="confirm()"
+                    class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+                Add selected
+            </button>
+        </div>
+    </div>
+</div>

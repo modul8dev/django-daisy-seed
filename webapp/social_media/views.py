@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth.decorators import login_required
 from django.forms import inlineformset_factory
 from django.http import HttpResponse
@@ -5,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from media_library.models import Image
+from media_library.models import Image, ImageGroup
 from .forms import (
     SharedMediaFormSet,
     SocialMediaPostForm,
@@ -15,6 +17,7 @@ from .models import (
     PLATFORM_CHOICES,
     SocialMediaPost,
     SocialMediaPostPlatform,
+    SocialMediaPlatformMedia,
     SocialMediaSettings,
 )
 
@@ -23,6 +26,39 @@ def _accept_layer_response():
     response = HttpResponse(status=204)
     response['X-Up-Accept-Layer'] = 'null'
     return response
+
+
+def _build_image_groups_data(user):
+    groups = ImageGroup.objects.filter(user=user).prefetch_related('images')
+    return [
+        {
+            'id': g.id,
+            'title': g.title,
+            'images': [{'id': img.id, 'url': img.url} for img in g.images.all()],
+        }
+        for g in groups
+    ]
+
+
+def _save_platform_override_media(request, post):
+    raw = request.POST.get('platform_override_media_json', '{}')
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return
+    for platform_variant in post.platforms.all():
+        images_data = data.get(platform_variant.platform)
+        if images_data is None:
+            continue
+        platform_variant.override_media.all().delete()
+        for sort_order, item in enumerate(images_data):
+            image_id = item.get('image_id')
+            if image_id:
+                SocialMediaPlatformMedia.objects.create(
+                    platform_variant=platform_variant,
+                    image_id=image_id,
+                    sort_order=sort_order,
+                )
 
 
 def _get_platform_label(key):
@@ -65,6 +101,7 @@ def post_create(request):
             platform_formset.save()
             media_formset.instance = post
             media_formset.save()
+            _save_platform_override_media(request, post)
             return _accept_layer_response()
     else:
         form = SocialMediaPostForm()
@@ -90,6 +127,8 @@ def post_create(request):
         'enabled_platforms': enabled_platforms,
         'platform_labels': platform_labels,
         'user_images': user_images,
+        'selected_shared_media': [],
+        'selected_platform_media': {},
         'is_edit': False,
     })
 
@@ -111,6 +150,7 @@ def post_edit(request, pk):
             updated_post.save()
             platform_formset.save()
             media_formset.save()
+            _save_platform_override_media(request, post)
             return _accept_layer_response()
     else:
         form = SocialMediaPostForm(instance=post)
@@ -123,6 +163,17 @@ def post_edit(request, pk):
     enabled_platforms = [p.platform for p in post.platforms.all()]
     platform_labels = {p: _get_platform_label(p) for p in enabled_platforms}
 
+    selected_shared_media = [
+        {'media_id': m.id, 'image_id': m.image_id, 'url': m.image.url}
+        for m in post.shared_media.order_by('sort_order')
+    ]
+    platform_override_media = {}
+    for pv in post.platforms.prefetch_related('override_media__image').all():
+        platform_override_media[pv.platform] = [
+            {'media_id': m.id, 'image_id': m.image_id, 'url': m.image.url}
+            for m in pv.override_media.order_by('sort_order')
+        ]
+
     return render(request, 'social_media/post_form.html', {
         'form': form,
         'platform_formset': platform_formset,
@@ -130,8 +181,31 @@ def post_edit(request, pk):
         'enabled_platforms': enabled_platforms,
         'platform_labels': platform_labels,
         'user_images': user_images,
+        'selected_shared_media': selected_shared_media,
+        'selected_platform_media': platform_override_media,
         'post': post,
         'is_edit': True,
+    })
+
+
+@login_required
+def image_picker(request):
+    groups = ImageGroup.objects.filter(user=request.user).prefetch_related('images')
+    selected_raw = request.GET.get('selected', '')
+    selected_ids = {int(s) for s in selected_raw.split(',') if s.strip().isdigit()}
+    target = request.GET.get('target', 'shared')
+    groups_data = [
+        {
+            'id': g.id,
+            'title': g.title,
+            'images': [{'id': img.id, 'url': img.url} for img in g.images.all()],
+        }
+        for g in groups
+    ]
+    return render(request, 'social_media/image_picker.html', {
+        'groups_data': groups_data,
+        'selected_ids': list(selected_ids),
+        'target': target,
     })
 
 

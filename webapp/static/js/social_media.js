@@ -3,6 +3,82 @@
 document.addEventListener('alpine:init', () => {
   'use strict';
 
+  // ── Image Picker (loaded as Unpoly modal fragment) ─────────────────────
+
+  Alpine.data('imagePicker', () => ({
+    groups: [],
+    currentGroupId: null,
+    selected: {},   // {imageId: true/false}
+    target: '',
+
+    init() {
+      const groupsEl = document.getElementById('picker-groups-data');
+      if (groupsEl) {
+        this.groups = JSON.parse(groupsEl.textContent);
+        if (this.groups.length) this.currentGroupId = this.groups[0].id;
+      }
+
+      const selectedEl = document.getElementById('picker-selected-ids');
+      if (selectedEl) {
+        const ids = JSON.parse(selectedEl.textContent);
+        ids.forEach(id => { this.selected[id] = true; });
+      }
+
+      const targetEl = document.getElementById('picker-target');
+      if (targetEl) this.target = targetEl.value;
+    },
+
+    currentImages() {
+      if (!this.currentGroupId) return [];
+      const group = this.groups.find(g => g.id === this.currentGroupId);
+      return group ? group.images : [];
+    },
+
+    currentGroupTitle() {
+      const group = this.groups.find(g => g.id === this.currentGroupId);
+      return group ? group.title : '';
+    },
+
+    selectGroup(group) {
+      const isNew = this.currentGroupId !== group.id;
+      this.currentGroupId = group.id;
+      // Auto-select first image when switching to a new group
+      if (isNew && group.images.length > 0) {
+        const firstId = group.images[0].id;
+        if (!this.selected[firstId]) {
+          this.selected = { ...this.selected, [firstId]: true };
+        }
+      }
+    },
+
+    isSelected(imageId) {
+      return !!this.selected[imageId];
+    },
+
+    groupHasSelected(group) {
+      return group.images.some(img => !!this.selected[img.id]);
+    },
+
+    toggle(imageId) {
+      this.selected = { ...this.selected, [imageId]: !this.selected[imageId] };
+    },
+
+    confirm() {
+      const urlMap = {};
+      this.groups.forEach(g => g.images.forEach(img => { urlMap[img.id] = img.url; }));
+      const imageIds = Object.entries(this.selected)
+        .filter(([, v]) => v)
+        .map(([id]) => parseInt(id, 10));
+      up.layer.accept({ target: this.target, imageIds, urls: urlMap });
+    },
+
+    cancel() {
+      up.layer.dismiss();
+    },
+  }));
+
+  // ── Post Composer ──────────────────────────────────────────────────────
+
   Alpine.data('postComposer', () => ({
     PLATFORM_LIMITS: {
       linkedin: 3000,
@@ -17,6 +93,11 @@ document.addEventListener('alpine:init', () => {
     overrideMediaShown: {},
     overrideText: {},
     textPrefilled: {},
+
+    // ── Image state ───────────────────────────────────────────────────────
+    sharedImages: [],        // [{mediaId, imageId, url}]
+    deletedShared: [],       // [{mediaId, imageId}] — existing records removed
+    platformImages: {},      // {platform: [{mediaId, imageId, url}]}
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -35,6 +116,46 @@ document.addEventListener('alpine:init', () => {
         this.overrideText[platform] = overrideField ? overrideField.value : '';
         this.textPrefilled[platform] = !!(overrideField && overrideField.value);
       });
+
+      // Load selected shared media
+      const sharedEl = document.getElementById('selected-shared-media-json');
+      if (sharedEl) {
+        const data = JSON.parse(sharedEl.textContent);
+        this.sharedImages = data.map(item => ({
+          mediaId: item.media_id,
+          imageId: item.image_id,
+          url: item.url,
+        }));
+      }
+
+      // Load selected platform override media
+      const platformEl = document.getElementById('selected-platform-media-json');
+      if (platformEl) {
+        const data = JSON.parse(platformEl.textContent);
+        this.platformImages = {};
+        for (const [platform, images] of Object.entries(data)) {
+          this.platformImages[platform] = images.map(item => ({
+            mediaId: item.media_id,
+            imageId: item.image_id,
+            url: item.url,
+          }));
+        }
+      }
+
+      // Listen for image picker acceptance
+      this._pickerHandler = (event) => {
+        if (event.value) this.pickerAccepted(event.value);
+      };
+      document.addEventListener('up:layer:accepted', this._pickerHandler);
+
+      this.$nextTick(() => {
+        this.syncSharedMediaFormset();
+        this.syncPlatformMediaJson();
+      });
+    },
+
+    destroy() {
+      document.removeEventListener('up:layer:accepted', this._pickerHandler);
     },
 
     // ── Tab management ────────────────────────────────────────────────────
@@ -54,6 +175,15 @@ document.addEventListener('alpine:init', () => {
     previewText() {
       const text = this.effectiveText(this.activeTab);
       return text || 'Write something above to see a preview\u2026';
+    },
+
+    previewImages() {
+      if (this.activeTab === 'all') return this.sharedImages;
+      const platform = this.activeTab;
+      if (this.overrideMediaShown[platform]) {
+        return this.platformImages[platform] || [];
+      }
+      return this.sharedImages;
     },
 
     // ── Text helpers ──────────────────────────────────────────────────────
@@ -110,7 +240,6 @@ document.addEventListener('alpine:init', () => {
       if (!checked && !this.textPrefilled[platform] && !this.overrideText[platform]) {
         this.overrideText[platform] = this.sharedText;
         this.textPrefilled[platform] = true;
-        // Sync value into the hidden field so Django form submission picks it up
         this.$nextTick(() => {
           const panel = this.$el.querySelector('#panel-' + platform);
           if (panel) {
@@ -122,33 +251,140 @@ document.addEventListener('alpine:init', () => {
       this.overrideTextShown[platform] = !checked;
     },
 
-    // ── Shared media add/remove ───────────────────────────────────────────
+    // ── Image Picker (Unpoly modal) ───────────────────────────────────────
 
-    addSharedMedia() {
-      const template = this.$el.querySelector('#shared-media-empty');
-      const container = this.$el.querySelector('#shared-media-container');
-      const totalInput = this.$el.querySelector('[name$="media-TOTAL_FORMS"]');
-      if (!template || !container || !totalInput) return;
-
-      const idx = parseInt(totalInput.value, 10);
-      const clone = template.content.cloneNode(true);
-      clone.querySelectorAll('[name],[id],[for]').forEach(el => {
-        ['name', 'id', 'for'].forEach(attr => {
-          const val = el.getAttribute(attr);
-          if (val) el.setAttribute(attr, val.replace(/__prefix__/g, idx));
-        });
+    openPicker(target) {
+      const currentImages = target === 'shared'
+        ? this.sharedImages
+        : (this.platformImages[target.replace('platform:', '')] || []);
+      const selectedIds = currentImages.map(i => i.imageId).join(',');
+      up.layer.open({
+        url: `/social-media/image-picker/?target=${encodeURIComponent(target)}&selected=${selectedIds}`,
+        target: '#image-picker',
+        mode: 'modal',
+        history: false,
+        size: 'large',
       });
-      container.appendChild(clone);
-      totalInput.value = idx + 1;
     },
 
-    removeSharedMedia(btn) {
-      const row = btn.closest('.shared-media-row');
-      const totalInput = this.$el.querySelector('[name$="media-TOTAL_FORMS"]');
-      if (row && totalInput) {
-        row.remove();
-        totalInput.value = parseInt(totalInput.value, 10) - 1;
+    pickerAccepted({ target, imageIds, urls }) {
+      if (target === 'shared') {
+        const newShared = this.sharedImages.filter(img => {
+          if (!imageIds.includes(img.imageId)) {
+            if (img.mediaId) {
+              this.deletedShared = [...this.deletedShared, { mediaId: img.mediaId, imageId: img.imageId }];
+            }
+            return false;
+          }
+          return true;
+        });
+        const existingImageIds = this.sharedImages.map(i => i.imageId);
+        imageIds.forEach(id => {
+          if (!existingImageIds.includes(id)) {
+            newShared.push({ mediaId: null, imageId: id, url: urls[id] });
+          }
+        });
+        this.sharedImages = newShared;
+        this.syncSharedMediaFormset();
+      } else {
+        const platform = target.replace('platform:', '');
+        const existing = this.platformImages[platform] || [];
+        const existingImageIds = existing.map(i => i.imageId);
+        const newList = existing.filter(img => imageIds.includes(img.imageId));
+        imageIds.forEach(id => {
+          if (!existingImageIds.includes(id)) {
+            newList.push({ mediaId: null, imageId: id, url: urls[id] });
+          }
+        });
+        this.platformImages = { ...this.platformImages, [platform]: newList };
+        this.syncPlatformMediaJson();
       }
+    },
+
+    // ── Shared image removal ──────────────────────────────────────────────
+
+    removeSharedImage(imageId) {
+      const idx = this.sharedImages.findIndex(i => i.imageId === imageId);
+      if (idx === -1) return;
+      const removed = this.sharedImages[idx];
+      this.sharedImages = this.sharedImages.filter((_, i) => i !== idx);
+      if (removed.mediaId) {
+        this.deletedShared = [...this.deletedShared, { mediaId: removed.mediaId, imageId: removed.imageId }];
+      }
+      this.syncSharedMediaFormset();
+    },
+
+    // ── Platform image removal ────────────────────────────────────────────
+
+    removePlatformImage(platform, imageId) {
+      const list = this.platformImages[platform] || [];
+      this.platformImages = {
+        ...this.platformImages,
+        [platform]: list.filter(i => i.imageId !== imageId),
+      };
+      this.syncPlatformMediaJson();
+    },
+
+    // ── Formset sync ──────────────────────────────────────────────────────
+
+    syncSharedMediaFormset() {
+      const container = document.getElementById('shared-media-inputs');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const prefix = 'media';
+      let formIdx = 0;
+
+      // Active existing images (have a mediaId)
+      const existingActive = this.sharedImages.filter(i => i.mediaId);
+      existingActive.forEach(img => {
+        this._appendInput(container, `${prefix}-${formIdx}-id`, img.mediaId);
+        this._appendInput(container, `${prefix}-${formIdx}-image`, img.imageId);
+        this._appendInput(container, `${prefix}-${formIdx}-sort_order`, formIdx);
+        formIdx++;
+      });
+
+      // Deleted existing images (marked for deletion)
+      this.deletedShared.forEach(item => {
+        this._appendInput(container, `${prefix}-${formIdx}-id`, item.mediaId);
+        this._appendInput(container, `${prefix}-${formIdx}-image`, item.imageId);
+        this._appendInput(container, `${prefix}-${formIdx}-sort_order`, formIdx);
+        this._appendInput(container, `${prefix}-${formIdx}-DELETE`, 'on');
+        formIdx++;
+      });
+
+      const initialCount = existingActive.length + this.deletedShared.length;
+
+      // New images (no mediaId yet)
+      const newImages = this.sharedImages.filter(i => !i.mediaId);
+      newImages.forEach(img => {
+        this._appendInput(container, `${prefix}-${formIdx}-image`, img.imageId);
+        this._appendInput(container, `${prefix}-${formIdx}-sort_order`, formIdx);
+        formIdx++;
+      });
+
+      // Update management form
+      const totalInput = document.querySelector(`[name="${prefix}-TOTAL_FORMS"]`);
+      if (totalInput) totalInput.value = formIdx;
+      const initialInput = document.querySelector(`[name="${prefix}-INITIAL_FORM_COUNT"]`);
+      if (initialInput) initialInput.value = initialCount;
+    },
+
+    syncPlatformMediaJson() {
+      const result = {};
+      for (const [platform, images] of Object.entries(this.platformImages)) {
+        result[platform] = images.map(img => ({ image_id: img.imageId }));
+      }
+      const input = document.getElementById('platform-override-media-json-input');
+      if (input) input.value = JSON.stringify(result);
+    },
+
+    _appendInput(container, name, value) {
+      const el = document.createElement('input');
+      el.type = 'hidden';
+      el.name = name;
+      el.value = value;
+      container.appendChild(el);
     },
   }));
 });

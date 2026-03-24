@@ -89,6 +89,6 @@ SharedMediaFormSet = inlineformset_factory(
     SocialMediaPost,
     SocialMediaPostMedia,
     form=SharedMediaForm,
-    extra=1,
+    extra=0,
     can_delete=True,
 )
