@@ -25,11 +25,22 @@ class Image(models.Model):
         on_delete=models.CASCADE,
         related_name='images',
     )
-    image = models.ImageField(upload_to='media_library/images/%Y/%m/')
+    image = models.ImageField(upload_to='media_library/images/%Y/%m/', blank=True, null=True)
+    external_url = models.URLField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
 
+    @property
+    def url(self):
+        if self.image:
+            return self.image.url
+        return self.external_url
+
     def __str__(self):
-        return self.image.name if self.image else f'Image {self.pk}'
+        if self.image:
+            return self.image.name
+        if self.external_url:
+            return self.external_url
+        return f'Image {self.pk}'

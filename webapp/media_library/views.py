@@ -2,7 +2,6 @@ from urllib.parse import urlparse
 
 import requests as http_requests
 from django.contrib.auth.decorators import login_required
-from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -158,20 +157,7 @@ def shopify_import(request):
                 img_src = img_data.get('src', '')
                 if not img_src:
                     continue
-                try:
-                    img_resp = http_requests.get(img_src, timeout=30)
-                    img_resp.raise_for_status()
-                except http_requests.RequestException:
-                    continue
-
-                # Derive a safe filename from the URL path
-                path = urlparse(img_src).path
-                filename = path.rsplit('/', 1)[-1] if path else 'image.jpg'
-                if not filename:
-                    filename = f'shopify_{img_data.get("id", "unknown")}.jpg'
-
-                image_obj = Image(image_group=group)
-                image_obj.image.save(filename, ContentFile(img_resp.content), save=True)
+                Image.objects.create(image_group=group, external_url=img_src)
 
         return _accept_layer_response()
 
