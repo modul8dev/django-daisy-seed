@@ -77,7 +77,14 @@ def _make_platform_formset(extra=0):
 
 @login_required
 def post_list(request):
-    posts = SocialMediaPost.objects.filter(user=request.user).prefetch_related('platforms')
+    posts = list(
+        SocialMediaPost.objects.filter(user=request.user)
+        .prefetch_related('platforms', 'shared_media__image')
+    )
+    for post in posts:
+        all_media = list(post.shared_media.all())
+        post.preview_media = all_media[:3]
+        post.extra_media_count = max(0, len(all_media) - 3)
     return render(request, 'social_media/post_list.html', {'posts': posts})
 
 
