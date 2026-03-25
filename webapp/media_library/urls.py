@@ -12,4 +12,5 @@ urlpatterns = [
     path('import-url/', views.url_import, name='url_import'),
     path('<int:pk>/edit/', views.image_group_edit, name='image_group_edit'),
     path('<int:pk>/delete/', views.image_group_delete, name='image_group_delete'),
+    path('image-picker/', views.image_picker, name='image_picker'),
 ]

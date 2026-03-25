@@ -259,7 +259,7 @@ document.addEventListener('alpine:init', () => {
         : (this.platformImages[target.replace('platform:', '')] || []);
       const selectedIds = currentImages.map(i => i.imageId).join(',');
       up.layer.open({
-        url: `/social-media/image-picker/?target=${encodeURIComponent(target)}&selected=${selectedIds}`,
+        url: `/media-library/image-picker/?target=${encodeURIComponent(target)}&selected=${selectedIds}`,
         target: '#image-picker',
         mode: 'modal',
         history: false,

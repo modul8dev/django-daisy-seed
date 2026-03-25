@@ -195,26 +195,6 @@ def post_edit(request, pk):
     })
 
 
-@login_required
-def image_picker(request):
-    groups = ImageGroup.objects.filter(user=request.user).prefetch_related('images')
-    selected_raw = request.GET.get('selected', '')
-    selected_ids = {int(s) for s in selected_raw.split(',') if s.strip().isdigit()}
-    target = request.GET.get('target', 'shared')
-    groups_data = [
-        {
-            'id': g.id,
-            'title': g.title,
-            'images': [{'id': img.id, 'url': img.url} for img in g.images.all()],
-        }
-        for g in groups
-    ]
-    return render(request, 'social_media/image_picker.html', {
-        'groups_data': groups_data,
-        'selected_ids': list(selected_ids),
-        'target': target,
-    })
-
 
 @login_required
 @require_POST
