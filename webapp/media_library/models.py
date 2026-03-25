@@ -3,6 +3,10 @@ from django.db import models
 
 
 class ImageGroup(models.Model):
+    class GroupType(models.TextChoices):
+        PRODUCT = 'product', 'Product'
+        MANUAL = 'manual', 'Manual'
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -10,6 +14,11 @@ class ImageGroup(models.Model):
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    type = models.CharField(
+        max_length=20,
+        choices=GroupType.choices,
+        default=GroupType.MANUAL,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

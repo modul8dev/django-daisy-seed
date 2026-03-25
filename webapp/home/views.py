@@ -33,11 +33,3 @@ def settings(request):
         "form": profile_form,
         "social_form": social_form,
     })
-
-
-def about(request):
-    return render(request, "home/about.html")
-
-
-def article(request):
-    return render(request, "home/_article.html")

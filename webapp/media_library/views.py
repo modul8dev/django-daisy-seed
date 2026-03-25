@@ -21,8 +21,14 @@ def _accept_layer_response():
 
 @login_required
 def image_group_list(request):
-    groups = ImageGroup.objects.filter(user=request.user).prefetch_related('images')
+    groups = ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.MANUAL).prefetch_related('images')
     return render(request, 'media_library/image_group_list.html', {'groups': groups})
+
+
+@login_required
+def product_list(request):
+    groups = ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.PRODUCT).prefetch_related('images')
+    return render(request, 'media_library/product_list.html', {'groups': groups})
 
 
 @login_required
@@ -33,6 +39,7 @@ def image_group_create(request):
         if form.is_valid() and formset.is_valid():
             group = form.save(commit=False)
             group.user = request.user
+            group.type = request.GET.get('type', ImageGroup.GroupType.MANUAL)
             group.save()
             formset.instance = group
             formset.save()
@@ -151,6 +158,7 @@ def shopify_import(request):
                 user=request.user,
                 title=title,
                 description=description,
+                type=ImageGroup.GroupType.PRODUCT,
             )
 
             for img_data in product.get('images', []):

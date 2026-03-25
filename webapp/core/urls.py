@@ -19,10 +19,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
+from media_library import views as ml_views
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('media-library/', include('media_library.urls')),
+    path('products/', ml_views.product_list, name='product_list'),
     path('social-media/', include('social_media.urls')),
     path("", include("home.urls")),
 ]
