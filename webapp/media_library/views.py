@@ -1,7 +1,10 @@
+import json
 from urllib.parse import urlparse
 
 import requests as http_requests
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -86,87 +89,108 @@ def image_group_delete(request, pk):
 
 
 @login_required
+def add_url_image(request):
+    error = None
+    url = ''
+    if request.method == 'POST':
+        url = request.POST.get('url', '').strip()
+        validate = URLValidator()
+        try:
+            validate(url)
+            response = HttpResponse(status=204)
+            response['X-Up-Accept-Layer'] = json.dumps({'url': url})
+            return response
+        except ValidationError:
+            error = 'Please enter a valid image URL.'
+    return render(request, 'media_library/url_image_modal.html', {'error': error, 'url': url})
+
+
+def _import_shopify_products(user, shop_url):
+    """
+    Import products and images from a Shopify store.
+    Returns a tuple (success: bool, error: str or None).
+    """
+    raw_input = shop_url
+
+    # Normalize URL
+    if not shop_url.startswith(('http://', 'https://')):
+        shop_url = 'https://' + shop_url
+
+    parsed = urlparse(shop_url)
+    shop_domain = parsed.hostname
+
+    if not shop_domain or '.' not in shop_domain:
+        return False, 'Please enter a valid store URL.'
+
+    # Verify it's a Shopify store by pinging the GraphQL endpoint
+    graphql_url = f'https://{shop_domain}/api/2026-01/graphql.json'
+    try:
+        resp = http_requests.post(
+            graphql_url,
+            json={"query": "{ shop { name } }"},
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+    except http_requests.RequestException:
+        return False, 'Could not connect to store. Please check the URL.'
+
+    # Shopify returns 401/403 without a valid token; non-Shopify sites differ
+    if resp.status_code not in (200, 401, 403):
+        return False, 'This does not appear to be a Shopify store.'
+
+    # Fetch all products via the public /products.json endpoint
+    all_products = []
+    page = 1
+    while page <= 20:
+        products_url = f'https://{shop_domain}/products.json?limit=250&page={page}'
+        try:
+            resp = http_requests.get(products_url, timeout=30)
+            resp.raise_for_status()
+            products = resp.json().get('products', [])
+        except http_requests.RequestException:
+            break
+        if not products:
+            break
+        all_products.extend(products)
+        page += 1
+
+    if not all_products:
+        return False, 'No products found in this store.'
+
+    # Create an ImageGroup per product with its images
+    for product in all_products:
+        title = product.get('title', 'Untitled Product')
+        body_html = product.get('body_html') or ''
+        description = strip_tags(body_html).strip()[:500]
+
+        group = ImageGroup.objects.create(
+            user=user,
+            title=title,
+            description=description,
+            type=ImageGroup.GroupType.PRODUCT,
+        )
+
+        for img_data in product.get('images', []):
+            img_src = img_data.get('src', '')
+            if not img_src:
+                continue
+            Image.objects.create(image_group=group, external_url=img_src)
+
+    return True, None
+
+
+@login_required
 def shopify_import(request):
     if request.method == 'POST':
         shop_url = request.POST.get('shop_url', '').strip()
-        raw_input = shop_url
-
-        # Normalize URL
-        if not shop_url.startswith(('http://', 'https://')):
-            shop_url = 'https://' + shop_url
-
-        parsed = urlparse(shop_url)
-        shop_domain = parsed.hostname
-
-        if not shop_domain or '.' not in shop_domain:
-            return render(request, 'media_library/shopify_import.html', {
-                'error': 'Please enter a valid store URL.',
-                'shop_url': raw_input,
-            })
-
-        # Verify it's a Shopify store by pinging the GraphQL endpoint
-        graphql_url = f'https://{shop_domain}/api/2026-01/graphql.json'
-        try:
-            resp = http_requests.post(
-                graphql_url,
-                json={"query": "{ shop { name } }"},
-                headers={"Content-Type": "application/json"},
-                timeout=10,
-            )
-        except http_requests.RequestException:
-            return render(request, 'media_library/shopify_import.html', {
-                'error': 'Could not connect to store. Please check the URL.',
-                'shop_url': raw_input,
-            })
-
-        # Shopify returns 401/403 without a valid token; non-Shopify sites differ
-        if resp.status_code not in (200, 401, 403):
-            return render(request, 'media_library/shopify_import.html', {
-                'error': 'This does not appear to be a Shopify store.',
-                'shop_url': raw_input,
-            })
-
-        # Fetch all products via the public /products.json endpoint
-        all_products = []
-        page = 1
-        while page <= 20:
-            products_url = f'https://{shop_domain}/products.json?limit=250&page={page}'
-            try:
-                resp = http_requests.get(products_url, timeout=30)
-                resp.raise_for_status()
-                products = resp.json().get('products', [])
-            except http_requests.RequestException:
-                break
-            if not products:
-                break
-            all_products.extend(products)
-            page += 1
-
-        if not all_products:
-            return render(request, 'media_library/shopify_import.html', {
-                'error': 'No products found in this store.',
-                'shop_url': raw_input,
-            })
-
-        # Create an ImageGroup per product with its images
-        for product in all_products:
-            title = product.get('title', 'Untitled Product')
-            body_html = product.get('body_html') or ''
-            description = strip_tags(body_html).strip()[:500]
-
-            group = ImageGroup.objects.create(
-                user=request.user,
-                title=title,
-                description=description,
-                type=ImageGroup.GroupType.PRODUCT,
-            )
-
-            for img_data in product.get('images', []):
-                img_src = img_data.get('src', '')
-                if not img_src:
-                    continue
-                Image.objects.create(image_group=group, external_url=img_src)
-
-        return _accept_layer_response()
+        success, error = _import_shopify_products(request.user, shop_url)
+        
+        if success:
+            return _accept_layer_response()
+        
+        return render(request, 'media_library/shopify_import.html', {
+            'error': error,
+            'shop_url': shop_url,
+        })
 
     return render(request, 'media_library/shopify_import.html')

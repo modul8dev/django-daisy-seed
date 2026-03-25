@@ -1,0 +1,30 @@
+<main class="p-6 w-full">
+    <h2 class="text-xl font-bold mb-4">Add Image from URL</h2>
+
+    <form method="post" up-submit up-layer="current">
+        {% csrf_token %}
+
+        <div class="form-control w-full mb-4">
+            <label class="label" for="id_url">
+                <span class="label-text font-medium">Image URL <span class="text-error">*</span></span>
+            </label>
+            <input type="url"
+                   name="url"
+                   id="id_url"
+                   value="{{ url }}"
+                   class="input input-bordered w-full"
+                   placeholder="https://example.com/image.jpg"
+                   autofocus>
+            {% if error %}
+            <label class="label">
+                <span class="label-text-alt text-error">{{ error }}</span>
+            </label>
+            {% endif %}
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+            <button type="button" class="btn btn-ghost" up-dismiss>Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Image</button>
+        </div>
+    </form>
+</main>

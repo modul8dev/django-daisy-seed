@@ -1,5 +1,35 @@
 /* ── Compiled by Unpoly so it runs every time the fragment is inserted ── */
 
+/* ── Add a URL image row to the formset (called from up-on-accepted) ── */
+function mlAddUrlImageRow(url) {
+  var container = document.querySelector('#formset-container');
+  var emptyTemplate = document.querySelector('#empty-url-form');
+  if (!container || !emptyTemplate) return;
+
+  var form = container.closest('form');
+  var totalInput = form.querySelector('[name$="-TOTAL_FORMS"]');
+  var idx = parseInt(totalInput.value, 10);
+
+  var clone = emptyTemplate.content.cloneNode(true);
+  clone.querySelectorAll('[name], [id], [for]').forEach(function (el) {
+    ['name', 'id', 'for'].forEach(function (attr) {
+      var val = el.getAttribute(attr);
+      if (val) el.setAttribute(attr, val.replace(/__prefix__/g, idx));
+    });
+  });
+
+  var urlInput = clone.querySelector('[name$="-external_url"]');
+  if (urlInput) urlInput.value = url;
+
+  var img = clone.querySelector('.preview-img');
+  var noPreview = clone.querySelector('.no-preview');
+  if (img) { img.src = url; img.classList.remove('hidden'); }
+  if (noPreview) noPreview.classList.add('hidden');
+
+  container.appendChild(clone);
+  totalInput.value = idx + 1;
+}
+
 up.compiler('#formset-container', function (container) {
   'use strict';
 
@@ -117,6 +147,49 @@ up.compiler('#formset-container', function (container) {
     cb.style.width = '0';
     cb.style.height = '0';
   });
+
+  /* ── Paste image from clipboard ── */
+  function addPastedImageRow(file) {
+    if (!emptyTemplate) return;
+    var idx = getTotalForms();
+    var clone = emptyTemplate.content.cloneNode(true);
+
+    clone.querySelectorAll('[name], [id], [for]').forEach(function (el) {
+      ['name', 'id', 'for'].forEach(function (attr) {
+        var val = el.getAttribute(attr);
+        if (val) el.setAttribute(attr, val.replace(/__prefix__/g, idx));
+      });
+    });
+
+    container.appendChild(clone);
+    setTotalForms(idx + 1);
+
+    var newRow = container.lastElementChild;
+    var fileInput = newRow.querySelector('input[type="file"]');
+    if (fileInput) {
+      var dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      previewImage(fileInput);
+    }
+  }
+
+  function handlePaste(e) {
+    if (!container.isConnected) {
+      document.removeEventListener('paste', handlePaste);
+      return;
+    }
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        var file = items[i].getAsFile();
+        if (file) addPastedImageRow(file);
+      }
+    }
+  }
+
+  document.addEventListener('paste', handlePaste);
 
 });
 

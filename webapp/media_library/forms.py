@@ -24,7 +24,7 @@ class ImageGroupForm(forms.ModelForm):
 ImageFormSet = inlineformset_factory(
     ImageGroup,
     Image,
-    fields=['image'],
+    fields=['image', 'external_url'],
     extra=0,
     can_delete=True,
     widgets={
@@ -32,5 +32,6 @@ ImageFormSet = inlineformset_factory(
             'class': 'file-input file-input-ghost w-full',
             'accept': 'image/*',
         }),
+        'external_url': forms.HiddenInput(),
     },
 )
