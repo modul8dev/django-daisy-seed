@@ -69,7 +69,8 @@
                         {% if image_form.instance.pk and image_form.instance.url %}
                         <img src="{{ image_form.instance.url }}"
                              alt="Preview"
-                             class="preview-img w-full h-full object-cover">
+                             class="preview-img w-full h-full object-cover"
+                             loading="lazy">
                         {% else %}
                         <img src="" alt="" class="preview-img w-full h-full object-cover hidden">
                         <span class="no-preview text-base-content/30 text-xs">No image</span>

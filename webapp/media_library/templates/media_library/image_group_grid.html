@@ -30,14 +30,14 @@
                 {% for img in images|slice:":8" %}
                     {% if forloop.counter == 8 and count > 8 %}
                     <div class="relative rounded-lg overflow-hidden bg-zinc-100">
-                        <img src="{{ img.url }}" alt="" class="absolute inset-0 w-full h-full object-cover">
+                        <img src="{{ img.url }}" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
                         <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
                             <span class="text-white text-xs font-bold">+{{ count|add:"-7" }}</span>
                         </div>
                     </div>
                     {% else %}
                     <div class="rounded-lg overflow-hidden bg-zinc-100">
-                        <img src="{{ img.url }}" alt="" class="w-full h-full object-cover">
+                        <img src="{{ img.url }}" alt="" class="w-full h-full object-cover" loading="lazy">
                     </div>
                     {% endif %}
                 {% endfor %}

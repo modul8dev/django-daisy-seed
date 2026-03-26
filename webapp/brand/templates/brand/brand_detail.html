@@ -104,7 +104,7 @@
                     </div>
                     {# Buttons #}
                     <div class="flex flex-col gap-2">
-                        <a href="{% url 'media_library:image_picker' %}?target=logo{% if logo_image_id %}&selected={{ logo_image_id }}{% endif %}"
+                        <a href="{% url 'media_library:image_picker' %}?target=logo{% if logo_image_id %}&selected={{ logo_image_id }}{% endif %}&max=1"
                            class="btn btn-sm btn-outline"
                            up-layer="new"
                            up-mode="modal"

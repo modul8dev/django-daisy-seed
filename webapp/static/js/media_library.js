@@ -211,24 +211,55 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('imagePicker', () => ({
     groups: [],
     currentGroupId: null,
-    selected: {},   // {imageId: true/false}
+    selected: {},        // {imageId: true/false}
+    selectedOrder: [],   // insertion-order list of selected IDs (for FIFO)
     target: '',
+    maxImages: 0,
+    search: '',
+    typeFilter: 'all',
+    showSelectedOnly: false,
+    _refreshUrl: '',
+    _createUrl: '',
+    _editUrlBase: '',
 
     init() {
       const groupsEl = document.getElementById('picker-groups-data');
       if (groupsEl) {
         this.groups = JSON.parse(groupsEl.textContent);
-        if (this.groups.length) this.currentGroupId = this.groups[0].id;
+        // No group is focused by default
       }
 
       const selectedEl = document.getElementById('picker-selected-ids');
       if (selectedEl) {
         const ids = JSON.parse(selectedEl.textContent);
-        ids.forEach(id => { this.selected[id] = true; });
+        ids.forEach(id => {
+          this.selected[id] = true;
+          this.selectedOrder.push(id);
+        });
       }
 
       const targetEl = document.getElementById('picker-target');
       if (targetEl) this.target = targetEl.value;
+
+      const maxEl = document.getElementById('picker-max-images');
+      if (maxEl && maxEl.value) this.maxImages = parseInt(maxEl.value, 10) || 0;
+
+      // Read URL config from data attributes on the root element
+      const root = document.getElementById('image-picker');
+      if (root) {
+        this._refreshUrl = root.dataset.refreshUrl || '';
+        this._createUrl = root.dataset.createUrl || '';
+        this._editUrlBase = root.dataset.editUrlBase || '';
+      }
+    },
+
+    filteredGroups() {
+      const q = this.search.trim().toLowerCase();
+      return this.groups.filter(g => {
+        if (this.typeFilter !== 'all' && g.type !== this.typeFilter) return false;
+        if (!q) return true;
+        return g.title.toLowerCase().includes(q) || (g.description || '').toLowerCase().includes(q);
+      });
     },
 
     currentImages() {
@@ -245,11 +276,11 @@ document.addEventListener('alpine:init', () => {
     selectGroup(group) {
       const isNew = this.currentGroupId !== group.id;
       this.currentGroupId = group.id;
-      // Auto-select first image when switching to a new group
+      // Auto-select first image when switching to a new group (uses FIFO if at limit)
       if (isNew && group.images.length > 0) {
         const firstId = group.images[0].id;
         if (!this.selected[firstId]) {
-          this.selected = { ...this.selected, [firstId]: true };
+          this._addToSelection(firstId);
         }
       }
     },
@@ -262,8 +293,64 @@ document.addEventListener('alpine:init', () => {
       return group.images.some(img => !!this.selected[img.id]);
     },
 
+    selectedCount() {
+      return this.selectedOrder.length;
+    },
+
+    atMax() {
+      return this.maxImages > 0 && this.selectedOrder.length >= this.maxImages;
+    },
+
+    _addToSelection(imageId) {
+      const newSelected = { ...this.selected };
+      const newOrder = [...this.selectedOrder];
+      if (this.maxImages > 0 && newOrder.length >= this.maxImages) {
+        // FIFO: evict the oldest selection
+        const oldest = newOrder.shift();
+        if (oldest !== undefined) newSelected[oldest] = false;
+      }
+      newSelected[imageId] = true;
+      newOrder.push(imageId);
+      this.selected = newSelected;
+      this.selectedOrder = newOrder;
+    },
+
     toggle(imageId) {
-      this.selected = { ...this.selected, [imageId]: !this.selected[imageId] };
+      if (this.selected[imageId]) {
+        // Deselect
+        this.selected = { ...this.selected, [imageId]: false };
+        this.selectedOrder = this.selectedOrder.filter(id => id !== imageId);
+      } else {
+        this._addToSelection(imageId);
+      }
+    },
+
+    allSelectedImages() {
+      const idToImg = {};
+      this.groups.forEach(g => g.images.forEach(img => {
+        idToImg[img.id] = img;
+      }));
+      return this.selectedOrder.map(id => idToImg[id]).filter(Boolean);
+    },
+
+    sidebarImages() {
+      return this.showSelectedOnly ? this.allSelectedImages() : this.currentImages();
+    },
+
+    editGroup(groupId) {
+      const url = this._editUrlBase.replace('/0/', '/' + groupId + '/');
+      up.layer.open({ url, onAccepted: () => this.refreshGroups() });
+    },
+
+    createGroup() {
+      up.layer.open({ url: this._createUrl, onAccepted: () => this.refreshGroups() });
+    },
+
+    refreshGroups() {
+      const url = this._refreshUrl + '?format=json';
+      fetch(url)
+        .then(r => r.json())
+        .then(data => { this.groups = data.groups; });
     },
 
     confirm() {
@@ -273,9 +360,7 @@ document.addEventListener('alpine:init', () => {
         urlMap[img.id] = img.url;
         groupMap[img.id] = g.id;
       }));
-      const imageIds = Object.entries(this.selected)
-        .filter(([, v]) => v)
-        .map(([id]) => parseInt(id, 10));
+      const imageIds = this.selectedOrder.map(id => parseInt(id, 10));
       up.layer.accept({ target: this.target, imageIds, urls: urlMap, groupMap });
     },
 

@@ -300,16 +300,27 @@ def image_picker(request):
     selected_raw = request.GET.get('selected', '')
     selected_ids = {int(s) for s in selected_raw.split(',') if s.strip().isdigit()}
     target = request.GET.get('target', 'shared')
+    max_images_raw = request.GET.get('max', '')
+    max_images = int(max_images_raw) if max_images_raw.isdigit() else 0
     groups_data = [
         {
             'id': g.id,
             'title': g.title,
+            'description': g.description,
+            'type': g.type,
             'images': [{'id': img.id, 'url': img.url} for img in g.images.all()],
         }
         for g in groups
     ]
+    if request.GET.get('format') == 'json':
+        from django.http import JsonResponse
+        return JsonResponse({'groups': groups_data})
     return render(request, 'media_library/image_picker.html', {
         'groups_data': groups_data,
         'selected_ids': list(selected_ids),
         'target': target,
+        'max_images': max_images,
+        'create_url': reverse('media_library:image_group_create'),
+        'edit_url_base': reverse('media_library:image_group_edit', kwargs={'pk': 0}),
+        'picker_url': reverse('media_library:image_picker'),
     })
