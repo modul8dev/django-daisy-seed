@@ -37,10 +37,10 @@ class SocialMediaSettings(models.Model):
         on_delete=models.CASCADE,
         related_name='social_media_settings',
     )
-    enable_linkedin = models.BooleanField(default=False)
-    enable_x = models.BooleanField(default=False)
-    enable_facebook = models.BooleanField(default=False)
-    enable_instagram = models.BooleanField(default=False)
+    enable_linkedin = models.BooleanField(default=True)
+    enable_x = models.BooleanField(default=True)
+    enable_facebook = models.BooleanField(default=True)
+    enable_instagram = models.BooleanField(default=True)
 
     def get_enabled_platforms(self):
         platforms = []
