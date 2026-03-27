@@ -13,3 +13,222 @@ up-modal[size=large] up-modal-box {
 textarea {
   field-sizing: content; /* used to be `form-sizing` but changed to this */
 }
+
+/* ── FullCalendar Scheduler Overrides ───────────────────────────── */
+
+.scheduler-calendar {
+  --fc-border-color: #e4e4e7;            /* zinc-200 */
+  --fc-today-bg-color: #eef2ff;          /* indigo-50 */
+  --fc-neutral-bg-color: #fafafa;        /* zinc-50 */
+  --fc-page-bg-color: #ffffff;
+  --fc-event-border-color: transparent;
+  --fc-event-bg-color: transparent;
+  --fc-event-text-color: inherit;
+}
+
+/* Toolbar */
+.scheduler-calendar .fc-toolbar-title {
+  font-size: 1.125rem !important;
+  font-weight: 600;
+  color: #18181b;                        /* zinc-900 */
+}
+
+.scheduler-calendar .fc-button {
+  border: 1px solid #e4e4e7 !important;
+  background: #ffffff !important;
+  color: #52525b !important;             /* zinc-600 */
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  padding: 0.375rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+  text-transform: none !important;
+  transition: all 150ms;
+}
+
+.scheduler-calendar .fc-button:hover {
+  background: #f4f4f5 !important;        /* zinc-100 */
+  color: #18181b !important;
+}
+
+.scheduler-calendar .fc-button-active,
+.scheduler-calendar .fc-button:active {
+  background: #eef2ff !important;        /* indigo-50 */
+  color: #4338ca !important;             /* indigo-700 */
+  border-color: #c7d2fe !important;      /* indigo-200 */
+  box-shadow: none !important;
+}
+
+.scheduler-calendar .fc-button-group > .fc-button {
+  border-radius: 0 !important;
+}
+.scheduler-calendar .fc-button-group > .fc-button:first-child {
+  border-radius: 0.5rem 0 0 0.5rem !important;
+}
+.scheduler-calendar .fc-button-group > .fc-button:last-child {
+  border-radius: 0 0.5rem 0.5rem 0 !important;
+}
+
+/* Day headers */
+.scheduler-calendar .fc-col-header-cell {
+  background: #fafafa;                   /* zinc-50 */
+  border-color: #e4e4e7;
+}
+.scheduler-calendar .fc-col-header-cell-cushion {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #71717a;                        /* zinc-500 */
+  padding: 0.5rem 0;
+}
+
+/* Day cells */
+.scheduler-calendar .fc-daygrid-day-number {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #52525b;                        /* zinc-600 */
+  padding: 0.375rem 0.5rem;
+}
+.scheduler-calendar .fc-day-today .fc-daygrid-day-number {
+  background: #4f46e5;                   /* indigo-600 */
+  color: #ffffff;
+  border-radius: 9999px;
+  width: 1.625rem;
+  height: 1.625rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.25rem;
+  padding: 0;
+}
+.scheduler-calendar .fc-day-other .fc-daygrid-day-number {
+  color: #a1a1aa;                        /* zinc-400 */
+}
+
+/* "more" link */
+.scheduler-calendar .fc-daygrid-more-link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4f46e5;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+.scheduler-calendar .fc-daygrid-more-link:hover {
+  background: #eef2ff;
+}
+
+/* Remove default event harness padding */
+.scheduler-calendar .fc-daygrid-event-harness {
+  margin: 0 0.25rem 0.25rem;
+}
+
+/* Time grid slot styling */
+.scheduler-calendar .fc-timegrid-slot {
+  height: 3rem;
+}
+.scheduler-calendar .fc-timegrid-slot-label-cushion {
+  font-size: 0.6875rem;
+  color: #71717a;
+}
+
+/* Now indicator */
+.scheduler-calendar .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;                 /* red-500 */
+}
+.scheduler-calendar .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+}
+
+/* ── Event Card Styling ──────────────────────────────────────── */
+
+.scheduler-event-card {
+  display: flex;
+  gap: 0.375rem;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  padding: 0.375rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 150ms, border-color 150ms;
+  width: 100%;
+  min-width: 0;
+}
+.scheduler-event-card:hover {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  border-color: #d4d4d8;
+}
+
+.scheduler-event-thumb {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  background: #f4f4f5;
+}
+.scheduler-event-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scheduler-event-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.scheduler-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.125rem;
+}
+
+.scheduler-event-time {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.scheduler-event-status {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 9999px;
+  text-transform: capitalize;
+}
+
+.scheduler-event-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #18181b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scheduler-event-caption {
+  font-size: 0.625rem;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.0625rem;
+}
+
+.scheduler-event-platforms {
+  display: flex;
+  gap: 0.1875rem;
+  margin-top: 0.1875rem;
+  flex-wrap: wrap;
+}
+
+.scheduler-event-badge {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+  line-height: 1.125rem;
+}

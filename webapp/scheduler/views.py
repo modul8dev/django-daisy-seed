@@ -1,0 +1,122 @@
+import json
+from datetime import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
+
+from social_media.models import (
+    PLATFORM_CHOICES,
+    STATUS_CHOICES,
+    SocialMediaPost,
+    SocialMediaSettings,
+)
+
+
+@login_required
+def scheduler_view(request):
+    try:
+        sm_settings = request.user.social_media_settings
+        enabled_platforms = sm_settings.get_enabled_platforms()
+    except SocialMediaSettings.DoesNotExist:
+        enabled_platforms = [key for key, _ in PLATFORM_CHOICES]
+
+    platform_labels = dict(PLATFORM_CHOICES)
+    platforms_for_filter = [
+        {'key': p, 'label': platform_labels[p]}
+        for p in enabled_platforms
+    ]
+
+    return render(request, 'scheduler/scheduler.html', {
+        'platforms': platforms_for_filter,
+        'status_choices': STATUS_CHOICES,
+    })
+
+
+@login_required
+@require_GET
+def scheduler_events(request):
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    qs = SocialMediaPost.objects.filter(
+        user=request.user,
+        scheduled_at__isnull=False,
+    )
+
+    if start:
+        qs = qs.filter(scheduled_at__gte=start)
+    if end:
+        qs = qs.filter(scheduled_at__lt=end)
+
+    platform_filter = request.GET.get('platform')
+    if platform_filter:
+        qs = qs.filter(
+            platforms__platform=platform_filter,
+            platforms__is_enabled=True,
+        )
+
+    status_filter = request.GET.get('status')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    qs = qs.distinct().prefetch_related('shared_media__image', 'platforms')
+
+    events = []
+    for post in qs:
+        first_media = post.shared_media.first()
+        thumbnail = None
+        if first_media:
+            thumbnail = first_media.image.url
+
+        enabled_platforms = [
+            p.platform
+            for p in post.platforms.all()
+            if p.is_enabled
+        ]
+
+        events.append({
+            'id': post.pk,
+            'title': post.title,
+            'start': post.scheduled_at.isoformat(),
+            'extendedProps': {
+                'status': post.status,
+                'caption': (post.shared_text or '')[:120],
+                'platforms': enabled_platforms,
+                'thumbnail': thumbnail,
+                'editUrl': reverse('social_media:post_edit', args=[post.pk]),
+            },
+        })
+
+    return JsonResponse(events, safe=False)
+
+
+@login_required
+@require_POST
+def scheduler_reschedule(request, pk):
+    post = get_object_or_404(SocialMediaPost, pk=pk, user=request.user)
+
+    try:
+        body = json.loads(request.body)
+        new_dt_str = body.get('scheduled_at')
+        if not new_dt_str:
+            return JsonResponse({'error': 'Missing scheduled_at'}, status=400)
+
+        new_dt = datetime.fromisoformat(new_dt_str)
+        if timezone.is_naive(new_dt):
+            new_dt = timezone.make_aware(new_dt)
+
+        if new_dt < timezone.now():
+            return JsonResponse({'error': 'Cannot schedule in the past'}, status=400)
+
+        post.scheduled_at = new_dt
+        if post.status == 'draft':
+            post.status = 'scheduled'
+        post.save(update_fields=['scheduled_at', 'status', 'updated_at'])
+
+        return JsonResponse({'ok': True})
+    except (json.JSONDecodeError, ValueError) as e:
+        return JsonResponse({'error': str(e)}, status=400)

@@ -42,6 +42,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 INSTALLED_APPS = [
     'brand',
     'social_media',
+    'scheduler',
     'media_library',
     'home',
     'accounts',

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Scheduler{% endblock %}
+{% block header_title %}Scheduler{% endblock %}
+
+{% block content %}
+<div x-data="schedulerApp()" x-init="init()">
+
+    <!-- Filters bar -->
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+        <select x-model="platformFilter" @change="refetch()"
+                class="select select-bordered select-sm min-w-[140px] bg-white text-sm">
+            <option value="">All Platforms</option>
+            {% for p in platforms %}
+            <option value="{{ p.key }}">{{ p.label }}</option>
+            {% endfor %}
+        </select>
+        <select x-model="statusFilter" @change="refetch()"
+                class="select select-bordered select-sm min-w-[130px] bg-white text-sm">
+            <option value="">All Statuses</option>
+            {% for key, label in status_choices %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Calendar -->
+    <div id="scheduler-calendar" class="scheduler-calendar"
+         data-events-url="{% url 'scheduler:scheduler_events' %}"></div>
+</div>
+{% endblock %}

@@ -28,6 +28,7 @@ urlpatterns = [
     path('media-library/', include('media_library.urls')),
     path('products/', ml_views.product_list, name='product_list'),
     path('social-media/', include('social_media.urls')),
+    path('scheduler/', include('scheduler.urls')),
     path("", include("home.urls")),
 ]
 

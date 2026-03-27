@@ -48,7 +48,6 @@ docker build -f .devcontainer/Dockerfile -t webapp .
 docker run --rm -it -d \
   -p 8100:8100 \
   -v "$(pwd)":/workspace \
-  --env-file .env \
   --name stryng_new_app \
   --network stryng \
   webapp
