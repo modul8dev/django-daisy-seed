@@ -32,6 +32,10 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = ['https://*.stryng.io', 'http://localhost:8000', 'http://localhost:8100']
 
+# Trust the X-Forwarded-Proto header set by reverse proxies (e.g. nginx/Caddy)
+# so Django and allauth build https:// callback URLs correctly.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Application definition
 
