@@ -123,6 +123,21 @@ document.addEventListener('alpine:init', () => {
         }));
       }
 
+      // Apply prefill from query params (used by inspiration cards)
+      const prefillTopicEl = document.getElementById('prefill-topic-json');
+      if (prefillTopicEl) {
+        this.topic = prefillTopicEl.textContent.trim();
+        const topicHidden = document.getElementById('id_topic');
+        if (topicHidden) topicHidden.value = this.topic;
+      }
+      const prefillModeEl = document.getElementById('prefill-mode-json');
+      if (prefillModeEl) {
+        const prefillMode = prefillModeEl.textContent.trim();
+        if (prefillMode === 'ai' || prefillMode === 'editor') {
+          this.mode = prefillMode;
+        }
+      }
+
       // Track dirty state on any form input/change
       const postForm = document.getElementById('post-form');
       if (postForm) {

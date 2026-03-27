@@ -151,6 +151,21 @@ def post_create(request):
     platform_labels = {p: _get_platform_label(p) for p in enabled_platforms}
     brand = _get_user_brand(request.user)
 
+    # Support prefill from query params (used by inspiration cards)
+    prefill_topic = request.GET.get('topic', '')
+    prefill_mode = request.GET.get('mode', '')
+    prefill_seed_image_ids_raw = request.GET.get('seed_image_ids', '')
+    prefill_seed_images = []
+    if prefill_seed_image_ids_raw:
+        try:
+            id_list = [int(x) for x in prefill_seed_image_ids_raw.split(',') if x.strip()]
+            prefill_seed_images = [
+                {'image_id': img.id, 'url': img.url}
+                for img in Image.objects.filter(id__in=id_list, image_group__user=request.user)
+            ]
+        except (ValueError, TypeError):
+            pass
+
     return render(request, 'social_media/post_form.html', {
         'form': form,
         'platform_formset': platform_formset,
@@ -160,9 +175,11 @@ def post_create(request):
         'user_images': user_images,
         'selected_shared_media': [],
         'selected_platform_media': {},
-        'selected_seed_images': [],
+        'selected_seed_images': prefill_seed_images if prefill_seed_images else [],
         'brand': brand,
         'is_edit': False,
+        'prefill_topic': prefill_topic,
+        'prefill_mode': prefill_mode,
     })
 
 

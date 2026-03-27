@@ -48,7 +48,7 @@
     </div>
 
     {# ── Generating overlay ── #}
-    <div x-show="generating" x-cloak class="flex flex-1 flex-col items-center justify-center gap-6 bg-white mt-20">
+    <div x-show="generating" x-cloak class="flex flex-1 flex-col items-center justify-center gap-6 bg-white my-20">
         <svg class="animate-spin h-14 w-14 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
@@ -614,6 +614,8 @@
 {{ selected_shared_media|json_script:"selected-shared-media-json" }}
 {{ selected_platform_media|json_script:"selected-platform-media-json" }}
 {{ selected_seed_images|json_script:"selected-seed-images-json" }}
+{% if prefill_topic %}<script type="application/json" id="prefill-topic-json">{{ prefill_topic }}</script>{% endif %}
+{% if prefill_mode %}<script type="application/json" id="prefill-mode-json">{{ prefill_mode }}</script>{% endif %}
 
 {# Hidden platform override media JSON field (synced by Alpine before submit) #}
 <input type="hidden" id="platform-override-media-json-input" name="platform_override_media_json" value="{}" form="post-form" />
