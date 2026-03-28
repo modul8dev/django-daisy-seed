@@ -40,6 +40,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Application definition
 
 INSTALLED_APPS = [
+    'integrations',
     'brand',
     'social_media',
     'scheduler',
@@ -198,6 +199,63 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # Email (console backend for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# ─── Authlib OAuth Clients (for integrations app) ──────────────────────
+AUTHLIB_OAUTH_CLIENTS = {
+    'facebook': {
+        'client_id': os.environ.get('FACEBOOK_APP_ID', ''),
+        'client_secret': os.environ.get('FACEBOOK_APP_SECRET', ''),
+        'access_token_url': 'https://graph.facebook.com/v22.0/oauth/access_token',
+        'authorize_url': 'https://www.facebook.com/v22.0/dialog/oauth',
+        'api_base_url': 'https://graph.facebook.com/v22.0/',
+        'client_kwargs': {
+            'scope': 'pages_show_list pages_manage_posts pages_read_engagement',
+            'token_endpoint_auth_method': 'client_secret_post',
+        },
+    },
+    'instagram': {
+        'client_id': os.environ.get('INSTAGRAM_CLIENT_ID', ''),
+        'client_secret': os.environ.get('INSTAGRAM_CLIENT_SECRET', ''),
+        'access_token_url': 'https://api.instagram.com/oauth/access_token',
+        'authorize_url': 'https://api.instagram.com/oauth/authorize',
+        'api_base_url': 'https://graph.instagram.com/v22.0/',
+        'client_kwargs': {
+            'scope': 'instagram_business_basic instagram_business_content_publish',
+            'token_endpoint_auth_method': 'client_secret_post',
+        },
+    },
+    'twitter': {
+        'client_id': os.environ.get('TWITTER_CLIENT_ID', ''),
+        'client_secret': os.environ.get('TWITTER_CLIENT_SECRET', ''),
+        'access_token_url': 'https://api.twitter.com/2/oauth2/token',
+        'authorize_url': 'https://twitter.com/i/oauth2/authorize',
+        'api_base_url': 'https://api.twitter.com/2/',
+        'client_kwargs': {
+            'scope': 'tweet.read tweet.write users.read offline.access',
+            'token_endpoint_auth_method': 'client_secret_basic',
+            'code_challenge_method': 'S256',
+        },
+    },
+    'linkedin': {
+        'client_id': os.environ.get('LINKEDIN_CLIENT_ID', ''),
+        'client_secret': os.environ.get('LINKEDIN_CLIENT_SECRET', ''),
+        'access_token_url': 'https://www.linkedin.com/oauth/v2/accessToken',
+        'authorize_url': 'https://www.linkedin.com/oauth/v2/authorization',
+        'api_base_url': 'https://api.linkedin.com/',
+        'client_kwargs': {
+            'scope': 'r_basicprofile w_organization_social w_member_social rw_organization_admin r_organization_social r_organization_social_feed r_organization_followers w_organization_social_feed w_member_social_feed r_1st_connections_size',
+            'token_endpoint_auth_method': 'client_secret_post',
+        },
+    },
+}
+
+# Dotted paths to provider classes loaded by the integrations registry
+INTEGRATION_PROVIDERS = [
+    'integrations.providers.facebook.FacebookProvider',
+    'integrations.providers.instagram.InstagramProvider',
+    'integrations.providers.twitter.TwitterProvider',
+    'integrations.providers.linkedin.LinkedInProvider',
+]
 
 # Media files (uploads)
 MEDIA_URL = '/media/'
