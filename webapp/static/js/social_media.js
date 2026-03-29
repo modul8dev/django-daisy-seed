@@ -29,10 +29,8 @@ document.addEventListener('alpine:init', () => {
     seedImages: [],           // [{imageId, url}]
     generating: false,
     generationStep: '',
-    aiProcessing: false,
     suggestingTopic: false,
     topicSuggestions: [],
-    customInstruction: '',
 
     // ── Preview carousel state ────────────────────────────────────────────
     carouselIndex: 0,
@@ -432,97 +430,6 @@ document.addEventListener('alpine:init', () => {
         this.sharedText = text;
       } else {
         this.overrideText = { ...this.overrideText, [p]: text };
-      }
-    },
-
-    // ── AI: Edit Action ───────────────────────────────────────────────────
-
-    async aiEditAction(action) {
-      const p = this.activeTab;
-      const ta = this.getTextarea(p);
-      if (!ta) return;
-
-      const text = ta.selectionStart !== ta.selectionEnd
-        ? ta.value.substring(ta.selectionStart, ta.selectionEnd)
-        : ta.value;
-
-      if (!text.trim()) return;
-
-      this.aiProcessing = true;
-      try {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-        const resp = await fetch('/social-media/ai/edit-text/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-          },
-          body: JSON.stringify({
-            action: action,
-            text: text,
-            platform: p !== 'all' ? p : undefined,
-          }),
-        });
-        const data = await resp.json();
-        if (data.text) {
-          if (ta.selectionStart !== ta.selectionEnd) {
-            const before = ta.value.substring(0, ta.selectionStart);
-            const after = ta.value.substring(ta.selectionEnd);
-            this.updateText(p, before + data.text + after);
-          } else {
-            this.updateText(p, data.text);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to edit text:', e);
-      } finally {
-        this.aiProcessing = false;
-      }
-    },
-
-    // ── AI: Custom Instruction ────────────────────────────────────────────
-
-    async aiCustomInstruction(insertMode) {
-      const p = this.activeTab;
-      const ta = this.getTextarea(p);
-      if (!ta || !this.customInstruction.trim()) return;
-
-      const text = ta.value;
-      if (!text.trim() && insertMode === 'replace') return;
-
-      this.aiProcessing = true;
-      try {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-        const resp = await fetch('/social-media/ai/edit-text/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-          },
-          body: JSON.stringify({
-            action: 'freeform',
-            text: text || '(empty post)',
-            instruction: this.customInstruction,
-          }),
-        });
-        const data = await resp.json();
-        if (data.text) {
-          let newVal;
-          if (insertMode === 'replace') {
-            newVal = data.text;
-          } else if (insertMode === 'insert') {
-            const pos = ta.selectionStart;
-            newVal = ta.value.substring(0, pos) + data.text + ta.value.substring(pos);
-          } else if (insertMode === 'append') {
-            newVal = ta.value + (ta.value ? '\n\n' : '') + data.text;
-          }
-          this.updateText(p, newVal);
-          this.customInstruction = '';
-        }
-      } catch (e) {
-        console.error('Failed to apply custom instruction:', e);
-      } finally {
-        this.aiProcessing = false;
       }
     },
 

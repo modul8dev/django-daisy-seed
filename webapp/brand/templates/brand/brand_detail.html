@@ -66,8 +66,15 @@
 
             <div class="form-control sm:col-span-2">
                 <label class="label" for="id_summary"><span class="label-text font-medium">Summary</span></label>
-                {{ form.summary }}
-                {% if form.summary.errors %}<span class="text-xs text-error mt-1">{{ form.summary.errors.0 }}</span>{% endif %}
+                <c-ai_textarea
+                    actions="rewrite,improve,shorten,expand"
+                    custom_instruction=True
+                    auto_hide
+                    result_mode="replace"
+                >
+                    {{ form.summary }}
+                    {% if form.summary.errors %}<span class="text-xs text-error mt-1">{{ form.summary.errors.0 }}</span>{% endif %}
+                </c-ai_textarea>
             </div>
 
             <div class="form-control">

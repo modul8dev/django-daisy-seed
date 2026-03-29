@@ -24,18 +24,17 @@ document.addEventListener('alpine:init', () => {
         showCustomInstruction: cfg.showCustomInstruction ?? false,
         customPlaceholder: cfg.customPlaceholder || 'Tell AI what to do with the text\u2026',
         showCharCount: cfg.showCharCount ?? false,
-        autoHide: cfg.autoHide || 'never',
+        autoHide: !!cfg.autoHide,
         hideDelay: cfg.hideDelay ?? 150,
         resultMode: cfg.resultMode || 'replace',
         platform: cfg.platform || '',
-        language: cfg.language || '',
 
         // ── State ──────────────────────────────────────────────────────────
         fieldEl: null,
         instruction: '',
         processing: false,
         error: null,
-        showTools: (cfg.autoHide || 'never') === 'never',
+        showTools: !cfg.autoHide,
         hideTimer: null,
         actionsList: [],
 
@@ -119,7 +118,6 @@ document.addEventListener('alpine:init', () => {
                         instruction: instruction || '',
                         result_mode: this.resultMode,
                         platform: this.platform || undefined,
-                        language: this.language || undefined,
                         field_name: this.fieldEl?.name || '',
                     }),
                 });
@@ -154,19 +152,12 @@ document.addEventListener('alpine:init', () => {
         // ── Focus-based auto-hide ──────────────────────────────────────────
         handleFocusIn(event) {
             clearTimeout(this.hideTimer);
-            if (this.autoHide === 'never') return;
-            if (this.autoHide === 'textarea-blur') {
-                if (event.target === this.fieldEl) {
-                    this.showTools = true;
-                }
-            } else {
-                // 'blur': show on any focus within
-                this.showTools = true;
-            }
+            if (!this.autoHide) return;
+            this.showTools = true;
         },
 
         handleFocusOut(event) {
-            if (this.autoHide === 'never') return;
+            if (!this.autoHide) return;
             const relatedTarget = event.relatedTarget;
             if (!relatedTarget || !this.$el.contains(relatedTarget)) {
                 this.hideTimer = setTimeout(() => {

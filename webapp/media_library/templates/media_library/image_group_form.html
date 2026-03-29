@@ -40,14 +40,24 @@
                 <label class="label" for="id_description">
                     <span class="label-text font-medium">Description</span>
                 </label>
-                {{ form.description }}
-                {% if form.description.errors %}
-                <label class="label">
-                    {% for error in form.description.errors %}
-                    <span class="label-text-alt text-error">{{ error }}</span>
-                    {% endfor %}
-                </label>
-                {% endif %}
+                <c-ai_textarea
+                    actions="rewrite,improve,shorten,expand"
+                    custom_instruction=True
+                    char_count=False
+                    auto_hide
+                    hide_delay="150"
+                    result_mode="replace"
+                    platform="instagram"
+                >
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <label class="label">
+                        {% for error in form.description.errors %}
+                        <span class="label-text-alt text-error">{{ error }}</span>
+                        {% endfor %}
+                    </label>
+                    {% endif %}
+                </c-ai_textarea>
             </div>
 
             {# ── Images section ── #}

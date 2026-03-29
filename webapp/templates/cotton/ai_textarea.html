@@ -1,33 +1,25 @@
 <c-vars
-    field=""
-    label=""
     actions=""
-    endpoint=""
     custom_instruction=""
     custom_placeholder="Tell AI what to do with the text…"
     char_count=""
-    auto_hide="never"
+    auto_hide=""
     hide_delay="150"
     result_mode="replace"
     platform=""
-    language=""
 />
-{% if label %}
-<label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-zinc-700">{{ label }}</label>
-{% endif %}
 
 <div
     x-data="aiTextarea({
-        endpoint: '{{ endpoint }}',
+        endpoint: '/social-media/ai/edit-text/',
         actionsStr: '{{ actions }}',
         showCustomInstruction: {% if custom_instruction %}true{% else %}false{% endif %},
         customPlaceholder: '{{ custom_placeholder|escapejs }}',
         showCharCount: {% if char_count %}true{% else %}false{% endif %},
-        autoHide: '{{ auto_hide }}',
+        autoHide: {% if auto_hide %}true{% else %}false{% endif %},
         hideDelay: {{ hide_delay }},
         resultMode: '{{ result_mode }}',
-        platform: '{{ platform }}',
-        language: '{{ language }}'
+        platform: '{{ platform }}'
     })"
     @focusin="handleFocusIn($event)"
     @focusout="handleFocusOut($event)"
@@ -65,8 +57,8 @@
         <div x-show="error" class="mt-1 text-xs text-red-600" x-text="error"></div>
     </div>
 
-    {# ── Django field (renders textarea/input preserving all existing attrs) ── #}
-    {{ field }}
+    {# ── Field widget + errors + help text ── #}
+    {{ slot }}
 
     {# ── Custom instruction ── #}
     <div x-show="showTools && showCustomInstruction" class="mt-1">
@@ -93,14 +85,5 @@
         </div>
     </div>
 
-    {# ── Field errors ── #}
-    {% if field.errors %}
-    <p class="mt-1 text-xs text-red-600">{{ field.errors.0 }}</p>
-    {% endif %}
-
-    {# ── Help text ── #}
-    {% if field.help_text %}
-    <p class="mt-1 text-xs text-zinc-500">{{ field.help_text }}</p>
-    {% endif %}
 
 </div>
