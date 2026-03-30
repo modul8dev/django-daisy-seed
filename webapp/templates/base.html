@@ -140,6 +140,59 @@
                     </div>
                 </div>
 
+                <!-- Project switcher -->
+                {% if current_project %}
+                <div class="border-b border-zinc-100 px-3 py-3">
+                    <div class="dropdown w-full">
+                        <button tabindex="0" type="button"
+                                class="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                            </svg>
+                            <span class="flex-1 truncate">{{ current_project.name }}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                            </svg>
+                        </button>
+                        <ul tabindex="0"
+                            class="dropdown-content z-50 mt-1.5 w-full rounded-xl border border-zinc-100 bg-white p-1.5 shadow-xl shadow-zinc-900/10">
+                            {% for proj in user_projects %}
+                            <li>
+                                <form method="post" action="{% url 'projects:switch_project' %}" up-submit up-target="body">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="project_id" value="{{ proj.pk }}">
+                                    <button type="submit"
+                                            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-zinc-50 {% if proj.pk == current_project.pk %}font-medium text-indigo-700 bg-indigo-50{% else %}text-zinc-700{% endif %}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 {% if proj.pk == current_project.pk %}text-indigo-500{% else %}text-zinc-400{% endif %}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                        </svg>
+                                        <span class="truncate">{{ proj.name }}</span>
+                                        {% if proj.pk == current_project.pk %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-auto size-4 shrink-0 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </li>
+                            {% endfor %}
+                            <li><hr class="my-1 border-zinc-100"></li>
+                            <li>
+                                <a href="{% url 'projects:project_create' %}"
+                                   up-layer="new" up-mode="modal" up-size="small" up-history="false"
+                                   up-on-accepted="up.visit('/', { target: 'body' })"
+                                   class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    New Project
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Navigation -->
                 <nav class="flex-1 overflow-y-auto px-3 py-5" up-nav>
 
@@ -210,6 +263,17 @@
                                 Integrations
                             </a>
                         </li>
+                        {% if current_project %}
+                        <li>
+                            <a href="{% url 'projects:project_settings' %}" up-follow
+                               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 [&.menu-active]:bg-indigo-50 [&.menu-active]:text-indigo-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                </svg>
+                                Project Settings
+                            </a>
+                        </li>
+                        {% endif %}
                         <li>
                             <a href="/settings" up-follow
                                class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 [&.menu-active]:bg-indigo-50 [&.menu-active]:text-indigo-700">
@@ -217,7 +281,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 </svg>
-                                Settings
+                                Account Settings
                             </a>
                         </li>
                     </ul>

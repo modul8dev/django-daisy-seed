@@ -60,12 +60,13 @@ class FacebookProvider(BaseProvider):
             for p in pages
         ]
 
-    def save_connection(self, user, selected_account, token_data):
+    def save_connection(self, user, selected_account, token_data, project=None):
         conn, _created = IntegrationConnection.objects.update_or_create(
-            user=user,
+            project=project,
             provider=self.key,
             external_account_id=selected_account['id'],
             defaults={
+                'user': user,
                 'provider_category': self.category,
                 'external_account_name': selected_account['name'],
                 'access_token': selected_account.get('access_token', token_data.get('access_token', '')),

@@ -23,6 +23,11 @@ class IntegrationConnection(models.Model):
         on_delete=models.CASCADE,
         related_name='integration_connections',
     )
+    project = models.ForeignKey(
+        'projects.Project',
+        on_delete=models.CASCADE,
+        related_name='integration_connections',
+    )
     provider = models.CharField(max_length=50)
     provider_category = models.CharField(
         max_length=50,
@@ -46,7 +51,7 @@ class IntegrationConnection(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = [('user', 'provider', 'external_account_id')]
+        unique_together = [('project', 'provider', 'external_account_id')]
 
     def __str__(self):
         return f'{self.provider} – {self.external_account_name or self.external_account_id}'

@@ -22,7 +22,6 @@ from .models import (
     SocialMediaPostPlatform,
     SocialMediaPostSeedImage,
     SocialMediaPlatformMedia,
-    SocialMediaSettings,
 )
 
 
@@ -32,8 +31,8 @@ def _accept_layer_response():
     return response
 
 
-def _build_image_groups_data(user):
-    groups = ImageGroup.objects.filter(user=user).prefetch_related('images')
+def _build_image_groups_data(project):
+    groups = ImageGroup.objects.filter(project=project).prefetch_related('images')
     return [
         {
             'id': g.id,
@@ -98,7 +97,7 @@ def _make_platform_formset(extra=0):
 @login_required
 def post_list(request):
     posts = list(
-        SocialMediaPost.objects.filter(user=request.user)
+        SocialMediaPost.objects.filter(project=request.project)
         .prefetch_related('platforms', 'shared_media__image')
     )
     for post in posts:
@@ -110,9 +109,8 @@ def post_list(request):
 
 @login_required
 def post_create(request):
-    social_settings, _ = SocialMediaSettings.objects.get_or_create(user=request.user)
-    enabled_platforms = social_settings.get_enabled_platforms()
-    user_images = Image.objects.filter(image_group__user=request.user).select_related('image_group')
+    enabled_platforms = request.project.get_enabled_platforms()
+    user_images = Image.objects.filter(image_group__project=request.project).select_related('image_group')
 
     if request.method == 'POST':
         form = SocialMediaPostForm(request.POST)
@@ -122,6 +120,7 @@ def post_create(request):
         if form.is_valid() and platform_formset.is_valid() and media_formset.is_valid():
             post = form.save(commit=False)
             post.user = request.user
+            post.project = request.project
             if not post.title:
                 post.title = 'Untitled'
             post.status = 'scheduled' if request.POST.get('action') == 'schedule' and post.scheduled_at else 'draft'
@@ -149,7 +148,7 @@ def post_create(request):
         mf.fields['image'].queryset = user_images
 
     platform_labels = {p: _get_platform_label(p) for p in enabled_platforms}
-    brand = _get_user_brand(request.user)
+    brand = _get_project_brand(request.project)
 
     # Support prefill from query params (used by inspiration cards)
     prefill_topic = request.GET.get('topic', '')
@@ -161,7 +160,7 @@ def post_create(request):
             id_list = [int(x) for x in prefill_seed_image_ids_raw.split(',') if x.strip()]
             prefill_seed_images = [
                 {'image_id': img.id, 'url': img.url}
-                for img in Image.objects.filter(id__in=id_list, image_group__user=request.user)
+                for img in Image.objects.filter(id__in=id_list, image_group__project=request.project)
             ]
         except (ValueError, TypeError):
             pass
@@ -185,8 +184,8 @@ def post_create(request):
 
 @login_required
 def post_edit(request, pk):
-    post = get_object_or_404(SocialMediaPost, pk=pk, user=request.user)
-    user_images = Image.objects.filter(image_group__user=request.user).select_related('image_group')
+    post = get_object_or_404(SocialMediaPost, pk=pk, project=request.project)
+    user_images = Image.objects.filter(image_group__project=request.project).select_related('image_group')
 
     PlatformFormSet = _make_platform_formset(extra=0)
     if request.method == 'POST':
@@ -242,7 +241,7 @@ def post_edit(request, pk):
         'selected_shared_media': selected_shared_media,
         'selected_platform_media': platform_override_media,
         'selected_seed_images': selected_seed_images,
-        'brand': _get_user_brand(request.user),
+        'brand': _get_project_brand(request.project),
         'post': post,
         'is_edit': True,
     })
@@ -252,7 +251,7 @@ def post_edit(request, pk):
 @login_required
 @require_POST
 def post_delete(request, pk):
-    post = get_object_or_404(SocialMediaPost, pk=pk, user=request.user)
+    post = get_object_or_404(SocialMediaPost, pk=pk, project=request.project)
     post.delete()
     response = redirect(reverse('social_media:post_list'))
     response['X-Up-Events'] = '[{"type":"social_media:changed"}]'
@@ -262,9 +261,9 @@ def post_delete(request, pk):
 logger = logging.getLogger(__name__)
 
 
-def _get_user_brand(user):
+def _get_project_brand(project):
     try:
-        return Brand.objects.get(user=user)
+        return Brand.objects.get(project=project)
     except Brand.DoesNotExist:
         return None
 
@@ -283,7 +282,7 @@ def ai_suggest_topic(request):
     if not data:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    brand = _get_user_brand(request.user)
+    brand = _get_project_brand(request.project)
     if not brand:
         return JsonResponse({'error': 'Brand not configured'}, status=400)
 
@@ -291,7 +290,7 @@ def ai_suggest_topic(request):
     seed_images = list(
         Image.objects.filter(
             id__in=seed_image_ids,
-            image_group__user=request.user,
+            image_group__project=request.project,
         )
     ) if seed_image_ids else []
 
@@ -310,7 +309,7 @@ def ai_generate(request):
     if not data:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    brand = _get_user_brand(request.user)
+    brand = _get_project_brand(request.project)
     if not brand:
         return JsonResponse({'error': 'Brand not configured'}, status=400)
 
@@ -322,7 +321,7 @@ def ai_generate(request):
     seed_images = list(
         Image.objects.filter(
             id__in=seed_image_ids,
-            image_group__user=request.user,
+            image_group__project=request.project,
         )
     ) if seed_image_ids else []
 
@@ -335,7 +334,7 @@ def ai_generate(request):
         return JsonResponse({'error': 'Failed to generate text'}, status=500)
 
     try:
-        image = generate_post_image(brand, topic, post_type, seed_images, request.user)
+        image = generate_post_image(brand, topic, post_type, seed_images, request.user, project=request.project)
         if image:
             result['image'] = {'id': image.id, 'url': image.url}
     except Exception:
@@ -352,7 +351,7 @@ def ai_edit_text(request):
     if not data:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    brand = _get_user_brand(request.user)
+    brand = _get_project_brand(request.project)
     if not brand:
         return JsonResponse({'error': 'Brand not configured'}, status=400)
 

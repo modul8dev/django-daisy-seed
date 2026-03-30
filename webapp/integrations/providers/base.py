@@ -48,7 +48,7 @@ class BaseProvider(ABC):
         """
 
     @abstractmethod
-    def save_connection(self, user, selected_account: dict, token_data: dict):
+    def save_connection(self, user, selected_account: dict, token_data: dict, project=None):
         """
         Persist the selected account as an IntegrationConnection.
         Returns the created IntegrationConnection instance.

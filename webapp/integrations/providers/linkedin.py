@@ -91,15 +91,16 @@ class LinkedInProvider(BaseProvider):
             'email': email,
         }]
 
-    def save_connection(self, user, selected_account, token_data):
+    def save_connection(self, user, selected_account, token_data, project=None):
         expires_in = token_data.get('expires_in')
         expires_at = timezone.now() + timedelta(seconds=expires_in) if expires_in else None
 
         conn, _created = IntegrationConnection.objects.update_or_create(
-            user=user,
+            project=project,
             provider=self.key,
             external_account_id=selected_account['id'],
             defaults={
+                'user': user,
                 'provider_category': self.category,
                 'external_account_name': selected_account['name'],
                 'access_token': token_data.get('access_token', ''),

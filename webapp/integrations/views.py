@@ -25,7 +25,7 @@ def _get_provider_or_404(provider_key):
 @login_required
 def integration_list(request):
     providers = registry.get_all_providers()
-    connections = IntegrationConnection.objects.filter(user=request.user)
+    connections = IntegrationConnection.objects.filter(project=request.project)
 
     # Build a set of connected provider+account combos for quick lookup
     connected_keys = set()
@@ -67,7 +67,7 @@ def integration_callback(request, provider):
     try:
         accounts = prov.list_accounts(token_data)
         if accounts:
-            prov.save_connection(request.user, accounts[0], token_data)
+            prov.save_connection(request.user, accounts[0], token_data, project=request.project)
             messages.success(request, f'{prov.display_name} connected successfully.')
         else:
             messages.warning(request, f'No accounts found for {prov.display_name}.')
@@ -104,7 +104,7 @@ def integration_select_account(request, provider):
                 messages.error(request, 'Selected account not found. Please try again.')
                 return redirect('integrations:integration_select_account', provider=provider)
 
-            prov.save_connection(request.user, selected, token_data)
+            prov.save_connection(request.user, selected, token_data, project=request.project)
             # Clean up session
             del request.session[session_key]
             messages.success(request, f'{prov.display_name} connected successfully.')
@@ -131,7 +131,7 @@ def integration_select_account(request, provider):
 @require_POST
 @login_required
 def integration_disconnect(request, pk):
-    connection = get_object_or_404(IntegrationConnection, pk=pk, user=request.user)
+    connection = get_object_or_404(IntegrationConnection, pk=pk, project=request.project)
     provider_name = connection.provider
     prov = registry.get_provider(provider_name)
     display_name = prov.display_name if prov else provider_name

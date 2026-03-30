@@ -30,6 +30,7 @@ urlpatterns = [
     path('social-media/', include('social_media.urls')),
     path('scheduler/', include('scheduler.urls')),
     path('integrations/', include('integrations.urls')),
+    path('projects/', include('projects.urls')),
     path("", include("home.urls")),
 ]
 

@@ -28,11 +28,12 @@ def _accept_layer_response():
 # ── Brand scraping ──────────────────────────────────────────────────────────
 
 
-def _create_logo_image_group(user, logo_url, brand_name):
+def _create_logo_image_group(user, project, logo_url, brand_name):
     """Create an ImageGroup containing the logo URL. Returns the group or None."""
     try:
         group = ImageGroup.objects.create(
             user=user,
+            project=project,
             title=f'{brand_name} Logo' if brand_name else 'Brand Logo',
             type=ImageGroup.GroupType.MANUAL,
         )
@@ -42,9 +43,9 @@ def _create_logo_image_group(user, logo_url, brand_name):
         return None
 
 
-def _scrape_brand_data(user, url):
+def _scrape_brand_data(user, project, url):
     """
-    Scrape a website URL to extract brand data and populate the user's Brand model.
+    Scrape a website URL to extract brand data and populate the project's Brand model.
     Also imports website images to the media library and handles Shopify stores.
     Returns (success: bool, error: str | None).
     """
@@ -96,18 +97,18 @@ def _scrape_brand_data(user, url):
     brand_style_guide = extracted.get('style_guide', '').strip()
 
     # ── 7d: Import all website images to media library ──────────────────────
-    _import_url_images(user, url)  # errors are non-fatal
+    _import_url_images(user, url, project=project)  # errors are non-fatal
 
     # ── 7e: Try Shopify import (silently skip if not Shopify) ───────────────
-    _import_shopify_products(user, url)  # errors are non-fatal
+    _import_shopify_products(user, url, project=project)  # errors are non-fatal
 
     # ── 7c: Create logo ImageGroup ───────────────────────────────────────────
     logo_group = None
     if logo_url:
-        logo_group = _create_logo_image_group(user, logo_url, brand_name)
+        logo_group = _create_logo_image_group(user, project, logo_url, brand_name)
 
     # ── 7f: Save brand data ─────────────────────────────────────────────────
-    brand, _ = Brand.objects.get_or_create(user=user)
+    brand, _ = Brand.objects.get_or_create(project=project, defaults={'user': user})
     brand.website_url = url
     brand.name = brand_name
     brand.summary = brand_summary
@@ -124,18 +125,18 @@ def _scrape_brand_data(user, url):
 
 @login_required
 def brand_detail(request):
-    brand, _ = Brand.objects.get_or_create(user=request.user)
+    brand, _ = Brand.objects.get_or_create(project=request.project, defaults={'user': request.user})
     edit_mode = request.GET.get('mode') == 'edit'
 
     if request.method == 'POST':
-        form = BrandForm(request.POST, instance=brand, user=request.user)
+        form = BrandForm(request.POST, instance=brand, project=request.project)
         if form.is_valid():
             form.save()
             return redirect('brand:brand_detail')
         else:
             edit_mode = True
     else:
-        form = BrandForm(instance=brand, user=request.user)
+        form = BrandForm(instance=brand, project=request.project)
 
     # Preview URL and image ID for the logo field (reflects current form value, not just saved brand).
     logo_preview_url = ''
@@ -162,14 +163,14 @@ def brand_detail(request):
 
 @login_required
 def brand_scrape_modal(request):
-    brand, _ = Brand.objects.get_or_create(user=request.user)
+    brand, _ = Brand.objects.get_or_create(project=request.project, defaults={'user': request.user})
     initial_url = brand.website_url or ''
 
     if request.method == 'POST':
         form = ScrapeURLForm(request.POST)
         if form.is_valid():
             url = form.cleaned_data['url']
-            success, error = _scrape_brand_data(request.user, url)
+            success, error = _scrape_brand_data(request.user, request.project, url)
             if success:
                 response = _accept_layer_response()
                 response['X-Up-Events'] = '[{"type":"brand:scraped"}]'
@@ -190,7 +191,7 @@ def brand_onboarding(request):
         form = ScrapeURLForm(request.POST)
         if form.is_valid():
             url = form.cleaned_data['url']
-            success, error = _scrape_brand_data(request.user, url)
+            success, error = _scrape_brand_data(request.user, request.project, url)
             if success:
                 return redirect('/')
             return render(request, 'brand/onboarding.html', {

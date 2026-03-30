@@ -6,10 +6,10 @@ from .models import Brand
 
 
 class BrandForm(forms.ModelForm):
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
-            self.fields['logo'].queryset = ImageGroup.objects.filter(user=user)
+        if project is not None:
+            self.fields['logo'].queryset = ImageGroup.objects.filter(project=project)
         else:
             self.fields['logo'].queryset = ImageGroup.objects.none()
         self.fields['logo'].required = False

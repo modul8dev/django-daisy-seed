@@ -14,8 +14,7 @@ from django.views.decorators.http import require_POST
 from accounts.forms import ProfileForm
 from brand.models import Brand
 from media_library.models import Image, ImageGroup
-from social_media.forms import SocialMediaSettingsForm
-from social_media.models import SocialMediaPost, SocialMediaSettings
+from social_media.models import SocialMediaPost
 
 UNSPLASH_ACCESS_KEY = os.environ.get('UNSPLASH_ACCESS_KEY', '')
 
@@ -31,14 +30,14 @@ def home(request):
     week_end = week_start + timezone.timedelta(days=7)
 
     drafts = (
-        SocialMediaPost.objects.filter(user=request.user, status='draft')
+        SocialMediaPost.objects.filter(project=request.project, status='draft')
         .prefetch_related('shared_media__image')
         .order_by('-updated_at')[:4]
     )
 
     scheduled_posts = (
         SocialMediaPost.objects.filter(
-            user=request.user,
+            project=request.project,
             status='scheduled',
             scheduled_at__gte=week_start,
             scheduled_at__lt=week_end,
@@ -48,14 +47,14 @@ def home(request):
     )
 
     try:
-        brand = Brand.objects.get(user=request.user)
+        brand = Brand.objects.get(project=request.project)
         has_brand = brand.has_data
     except Brand.DoesNotExist:
         brand = None
         has_brand = False
 
     products = list(
-        ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.PRODUCT)
+        ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT)
         .prefetch_related('images')[:50]
     )
     if len(products) > 6:
@@ -66,7 +65,7 @@ def home(request):
     has_products = bool(products)
 
     image_groups = (
-        ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.MANUAL)
+        ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.MANUAL)
         .prefetch_related('images')
         .order_by('-created_at')[:6]
     )
@@ -85,14 +84,14 @@ def home(request):
 @login_required
 def inspiration_cards(request):
     try:
-        brand = Brand.objects.get(user=request.user)
+        brand = Brand.objects.get(project=request.project)
         if not brand.has_data:
             brand = None
     except Brand.DoesNotExist:
         brand = None
 
     product_groups = list(
-        ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.PRODUCT)
+        ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT)
         .prefetch_related('images')
     )
 
@@ -127,27 +126,17 @@ def inspiration_cards(request):
 
 
 def settings(request):
-    social_settings, _ = SocialMediaSettings.objects.get_or_create(user=request.user)
     profile_form = ProfileForm(instance=request.user)
-    social_form = SocialMediaSettingsForm(instance=social_settings)
 
     if request.method == "POST":
-        if 'save_profile' in request.POST:
-            profile_form = ProfileForm(request.POST, instance=request.user)
-            if profile_form.is_valid():
-                profile_form.save()
-                messages.success(request, "Profile updated.")
-                return redirect("settings")
-        elif 'save_social' in request.POST:
-            social_form = SocialMediaSettingsForm(request.POST, instance=social_settings)
-            if social_form.is_valid():
-                social_form.save()
-                messages.success(request, "Social media settings saved.")
-                return redirect("settings")
+        profile_form = ProfileForm(request.POST, instance=request.user)
+        if profile_form.is_valid():
+            profile_form.save()
+            messages.success(request, "Profile updated.")
+            return redirect("settings")
 
     return render(request, "home/settings.html", {
         "form": profile_form,
-        "social_form": social_form,
     })
 
 
@@ -181,6 +170,7 @@ def save_unsplash_image(request):
     if photo_url and photo_id:
         group = ImageGroup.objects.create(
             user=request.user,
+            project=request.project,
             title=title,
             type=ImageGroup.GroupType.MANUAL,
         )

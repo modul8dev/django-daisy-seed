@@ -31,33 +31,6 @@ STATUS_CHOICES = [
 ]
 
 
-class SocialMediaSettings(models.Model):
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='social_media_settings',
-    )
-    enable_linkedin = models.BooleanField(default=True)
-    enable_x = models.BooleanField(default=True)
-    enable_facebook = models.BooleanField(default=True)
-    enable_instagram = models.BooleanField(default=True)
-
-    def get_enabled_platforms(self):
-        platforms = []
-        if self.enable_linkedin:
-            platforms.append('linkedin')
-        if self.enable_x:
-            platforms.append('x')
-        if self.enable_facebook:
-            platforms.append('facebook')
-        if self.enable_instagram:
-            platforms.append('instagram')
-        return platforms
-
-    def __str__(self):
-        return f'Social media settings for {self.user}'
-
-
 POST_TYPE_CHOICES = [
     ('product', 'Product'),
     ('lifestyle', 'Lifestyle'),
@@ -68,6 +41,11 @@ POST_TYPE_CHOICES = [
 class SocialMediaPost(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='social_media_posts',
+    )
+    project = models.ForeignKey(
+        'projects.Project',
         on_delete=models.CASCADE,
         related_name='social_media_posts',
     )

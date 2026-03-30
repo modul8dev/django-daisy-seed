@@ -13,6 +13,11 @@ class ImageGroup(models.Model):
         on_delete=models.CASCADE,
         related_name='image_groups',
     )
+    project = models.ForeignKey(
+        'projects.Project',
+        on_delete=models.CASCADE,
+        related_name='image_groups',
+    )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     type = models.CharField(

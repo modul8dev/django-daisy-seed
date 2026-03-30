@@ -27,13 +27,13 @@ def _accept_layer_response():
 
 @login_required
 def image_group_list(request):
-    groups = ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.MANUAL).prefetch_related('images')
+    groups = ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.MANUAL).prefetch_related('images')
     return render(request, 'media_library/image_group_list.html', {'groups': groups})
 
 
 @login_required
 def product_list(request):
-    groups = ImageGroup.objects.filter(user=request.user, type=ImageGroup.GroupType.PRODUCT).prefetch_related('images')
+    groups = ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT).prefetch_related('images')
     return render(request, 'media_library/product_list.html', {'groups': groups})
 
 
@@ -45,6 +45,7 @@ def image_group_create(request):
         if form.is_valid() and formset.is_valid():
             group = form.save(commit=False)
             group.user = request.user
+            group.project = request.project
             group.type = request.GET.get('type', ImageGroup.GroupType.MANUAL)
             group.save()
             formset.instance = group
@@ -62,7 +63,7 @@ def image_group_create(request):
 
 @login_required
 def image_group_edit(request, pk):
-    group = get_object_or_404(ImageGroup, pk=pk, user=request.user)
+    group = get_object_or_404(ImageGroup, pk=pk, project=request.project)
     if request.method == 'POST':
         form = ImageGroupForm(request.POST, instance=group)
         formset = ImageFormSet(request.POST, request.FILES, instance=group)
@@ -84,7 +85,7 @@ def image_group_edit(request, pk):
 @login_required
 @require_POST
 def image_group_delete(request, pk):
-    group = get_object_or_404(ImageGroup, pk=pk, user=request.user)
+    group = get_object_or_404(ImageGroup, pk=pk, project=request.project)
     group.delete()
     response = redirect(reverse('media_library:image_group_list'))
     response['X-Up-Events'] = '[{"type":"media_library:changed"}]'
@@ -108,7 +109,7 @@ def add_url_image(request):
     return render(request, 'media_library/url_image_modal.html', {'error': error, 'url': url})
 
 
-def _import_shopify_products(user, shop_url):
+def _import_shopify_products(user, shop_url, project=None):
     """
     Import products and images from a Shopify store.
     Returns a tuple (success: bool, error: str or None).
@@ -168,6 +169,7 @@ def _import_shopify_products(user, shop_url):
 
         group = ImageGroup.objects.create(
             user=user,
+            project=project,
             title=title,
             description=description,
             type=ImageGroup.GroupType.PRODUCT,
@@ -186,7 +188,7 @@ def _import_shopify_products(user, shop_url):
 def shopify_import(request):
     if request.method == 'POST':
         shop_url = request.POST.get('shop_url', '').strip()
-        success, error = _import_shopify_products(request.user, shop_url)
+        success, error = _import_shopify_products(request.user, shop_url, project=request.project)
         
         if success:
             return _accept_layer_response()
@@ -214,7 +216,7 @@ class _ImgSrcParser(HTMLParser):
                 self.srcs.append(src)
 
 
-def _import_url_images(user, page_url):
+def _import_url_images(user, page_url, project=None):
     """
     Scrape a URL with Firecrawl and create a manual ImageGroup with all found images.
     Returns (success: bool, error: str | None).
@@ -261,6 +263,7 @@ def _import_url_images(user, page_url):
 
     group = ImageGroup.objects.create(
         user=user,
+        project=project,
         title=title,
         type=ImageGroup.GroupType.MANUAL,
     )
@@ -283,7 +286,7 @@ def url_import(request):
                 'page_url': page_url,
             })
 
-        success, error = _import_url_images(request.user, page_url)
+        success, error = _import_url_images(request.user, page_url, project=request.project)
         if success:
             return _accept_layer_response()
 
@@ -297,7 +300,7 @@ def url_import(request):
 
 @login_required
 def image_picker(request):
-    groups = ImageGroup.objects.filter(user=request.user).prefetch_related('images')
+    groups = ImageGroup.objects.filter(project=request.project).prefetch_related('images')
     selected_raw = request.GET.get('selected', '')
     selected_ids = {int(s) for s in selected_raw.split(',') if s.strip().isdigit()}
     target = request.GET.get('target', 'shared')
@@ -335,7 +338,7 @@ def image_editor_modal(request):
         try:
             img = Image.objects.select_related('image_group').get(
                 pk=int(image_id),
-                image_group__user=request.user,
+                image_group__project=request.project,
             )
             source_image = {'id': img.id, 'url': img.url}
         except (Image.DoesNotExist, ValueError):
@@ -366,25 +369,26 @@ def image_editor_generate(request):
     input_images = []
     if attachment_ids:
         input_images = list(
-            Image.objects.filter(pk__in=attachment_ids, image_group__user=request.user)
+            Image.objects.filter(pk__in=attachment_ids, image_group__project=request.project)
         )
 
     # Resolve or lazily create output group
     output_group = None
     if group_id:
         try:
-            output_group = ImageGroup.objects.get(pk=int(group_id), user=request.user)
+            output_group = ImageGroup.objects.get(pk=int(group_id), project=request.project)
         except (ImageGroup.DoesNotExist, ValueError):
             pass
     if output_group is None:
         output_group = ImageGroup.objects.create(
             user=request.user,
+            project=request.project,
             title='AI Generated Images',
             type=ImageGroup.GroupType.GENERATED,
         )
 
     # Get brand for context injection
-    brand = getattr(request.user, 'brand', None)
+    brand = getattr(request.project, 'brand', None)
 
     from social_media.ai_services import generate_editor_image
     try:

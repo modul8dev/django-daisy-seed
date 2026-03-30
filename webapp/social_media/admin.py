@@ -1,7 +1,6 @@
 from django.contrib import admin
 
 from .models import (
-    SocialMediaSettings,
     SocialMediaPost,
     SocialMediaPostPlatform,
     SocialMediaPostMedia,
@@ -31,10 +30,6 @@ class SocialMediaPostAdmin(admin.ModelAdmin):
     list_filter = ['status']
     inlines = [SocialMediaPostPlatformInline, SocialMediaPostMediaInline, SocialMediaPostSeedImageInline]
 
-
-@admin.register(SocialMediaSettings)
-class SocialMediaSettingsAdmin(admin.ModelAdmin):
-    list_display = ['user', 'enable_linkedin', 'enable_x', 'enable_facebook', 'enable_instagram']
 
 
 @admin.register(SocialMediaPostPlatform)

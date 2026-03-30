@@ -138,7 +138,7 @@ def _generate_gemini_image(prompt, input_images=None):
     return None
 
 
-def generate_post_image(brand, topic, post_type, seed_images, user):
+def generate_post_image(brand, topic, post_type, seed_images, user, project=None):
     """Generate an image using Gemini and save it to the media library."""
     # Build pre-prompt: include seed image names/descriptions and instruct AI
     seed_lines = []
@@ -173,6 +173,7 @@ def generate_post_image(brand, topic, post_type, seed_images, user):
     else:
         group, _ = ImageGroup.objects.get_or_create(
             user=user,
+            project=project,
             title='AI Generated Images',
             type=ImageGroup.GroupType.MANUAL,
         )

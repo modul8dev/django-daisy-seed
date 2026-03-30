@@ -75,12 +75,13 @@ class InstagramProvider(BaseProvider):
             'account_type': user.get('account_type', ''),
         }]
 
-    def save_connection(self, user, selected_account, token_data):
+    def save_connection(self, user, selected_account, token_data, project=None):
         conn, _created = IntegrationConnection.objects.update_or_create(
-            user=user,
+            project=project,
             provider=self.key,
             external_account_id=selected_account['id'],
             defaults={
+                'user': user,
                 'provider_category': self.category,
                 'external_account_name': selected_account['name'],
                 'access_token': token_data.get('access_token', ''),

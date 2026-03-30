@@ -3,8 +3,13 @@ from django.db import models
 
 
 class Brand(models.Model):
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='brands',
+    )
+    project = models.OneToOneField(
+        'projects.Project',
         on_delete=models.CASCADE,
         related_name='brand',
     )

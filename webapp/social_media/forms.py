@@ -2,25 +2,10 @@ from django import forms
 from django.forms import inlineformset_factory
 
 from .models import (
-    SocialMediaSettings,
     SocialMediaPost,
     SocialMediaPostPlatform,
     SocialMediaPostMedia,
 )
-
-
-class SocialMediaSettingsForm(forms.ModelForm):
-    class Meta:
-        model = SocialMediaSettings
-        fields = ['enable_linkedin', 'enable_x', 'enable_facebook', 'enable_instagram']
-        widgets = {
-            'enable_linkedin': forms.CheckboxInput(attrs={'class': 'checkbox checkbox-primary'}),
-            'enable_x': forms.CheckboxInput(attrs={'class': 'checkbox checkbox-primary'}),
-            'enable_facebook': forms.CheckboxInput(attrs={'class': 'checkbox checkbox-primary'}),
-            'enable_instagram': forms.CheckboxInput(attrs={'class': 'checkbox checkbox-primary'}),
-        }
-
-
 class SocialMediaPostForm(forms.ModelForm):
     class Meta:
         model = SocialMediaPost

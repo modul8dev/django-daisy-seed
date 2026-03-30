@@ -12,17 +12,12 @@ from social_media.models import (
     PLATFORM_CHOICES,
     STATUS_CHOICES,
     SocialMediaPost,
-    SocialMediaSettings,
 )
 
 
 @login_required
 def scheduler_view(request):
-    try:
-        sm_settings = request.user.social_media_settings
-        enabled_platforms = sm_settings.get_enabled_platforms()
-    except SocialMediaSettings.DoesNotExist:
-        enabled_platforms = [key for key, _ in PLATFORM_CHOICES]
+    enabled_platforms = request.project.get_enabled_platforms()
 
     platform_labels = dict(PLATFORM_CHOICES)
     platforms_for_filter = [
@@ -43,7 +38,7 @@ def scheduler_events(request):
     end = request.GET.get('end')
 
     qs = SocialMediaPost.objects.filter(
-        user=request.user,
+        project=request.project,
         scheduled_at__isnull=False,
     )
 
@@ -97,7 +92,7 @@ def scheduler_events(request):
 @login_required
 @require_POST
 def scheduler_reschedule(request, pk):
-    post = get_object_or_404(SocialMediaPost, pk=pk, user=request.user)
+    post = get_object_or_404(SocialMediaPost, pk=pk, project=request.project)
 
     try:
         body = json.loads(request.body)
