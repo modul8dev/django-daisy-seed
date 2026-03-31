@@ -25,13 +25,25 @@ document.addEventListener('alpine:init', () => {
         generateUrl: root.dataset.generateUrl || '',
       };
 
-      // Pre-load source image if opened in edit mode
+      // Pre-load source image into input area (single image edit mode)
       try {
         const src = JSON.parse(root.dataset.sourceImage || 'null');
         if (src && src.id && src.url) {
           this.attachedImages = [{ id: src.id, badge: this.nextBadge++, url: src.url }];
         }
       } catch (_) { /* ignore */ }
+
+      // Pre-populate Quick Access from group images
+      try {
+        const quickAccess = JSON.parse(root.dataset.quickAccessImages || '[]');
+        if (Array.isArray(quickAccess) && quickAccess.length > 0) {
+          this.imageHistory = quickAccess.map(img => ({ id: img.id, url: img.url }));
+        }
+      } catch (_) { /* ignore */ }
+
+      // Pre-load group id so generated images are saved to the same group
+      const groupId = root.dataset.groupId;
+      if (groupId) this.groupId = parseInt(groupId, 10);
 
       // Listen for image picker acceptance
       this._pickerHandler = (event) => {

@@ -2,6 +2,8 @@
      data-picker-url="{{ picker_url }}"
      data-generate-url="{{ generate_url }}"
      data-source-image="{{ source_image_json }}"
+     data-quick-access-images="{{ quick_access_images_json }}"
+     data-group-id="{{ group_id }}"
      class="flex flex-col h-full w-full"
      up-main>
 
@@ -120,11 +122,11 @@
         {# ── Right: Controls ── #}
         <aside class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-zinc-200 bg-white">
 
-            {# Quick Access — previously generated images #}
+            {# Quick Access — group images + previously used images #}
             <div class="shrink-0 border-b border-zinc-100 px-4 py-4">
                 <p class="mb-2 text-xs font-semibold text-zinc-500">Quick Access</p>
                 <template x-if="imageHistory.length === 0">
-                    <p class="text-xs text-zinc-400">Generated images will appear here</p>
+                    <p class="text-xs text-zinc-400">Images you use or generate will appear here</p>
                 </template>
                 <div class="flex flex-wrap gap-2" x-show="imageHistory.length > 0">
                     <template x-for="img in imageHistory" :key="img.id">

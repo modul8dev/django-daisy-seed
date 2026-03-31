@@ -27,7 +27,7 @@ def _accept_layer_response():
 
 @login_required
 def image_group_list(request):
-    groups = ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.MANUAL).prefetch_related('images')
+    groups = ImageGroup.objects.filter(project=request.project).exclude(type=ImageGroup.GroupType.PRODUCT).prefetch_related('images')
     return render(request, 'media_library/image_group_list.html', {'groups': groups})
 
 
@@ -333,7 +333,9 @@ def image_picker(request):
 @login_required
 def image_editor_modal(request):
     source_image = None
+    quick_access_images = []
     image_id = request.GET.get('image_id')
+    group_id = request.GET.get('group_id')
     if image_id:
         try:
             img = Image.objects.select_related('image_group').get(
@@ -343,8 +345,16 @@ def image_editor_modal(request):
             source_image = {'id': img.id, 'url': img.url}
         except (Image.DoesNotExist, ValueError):
             pass
+    elif group_id:
+        try:
+            group = ImageGroup.objects.get(pk=int(group_id), project=request.project)
+            quick_access_images = [{'id': img.id, 'url': img.url} for img in group.images.all()]
+        except (ImageGroup.DoesNotExist, ValueError):
+            pass
     return render(request, 'media_library/image_editor_modal.html', {
         'source_image_json': json.dumps(source_image) if source_image else 'null',
+        'quick_access_images_json': json.dumps(quick_access_images),
+        'group_id': group_id or '',
         'picker_url': reverse('media_library:image_picker'),
         'generate_url': reverse('media_library:image_editor_generate'),
     })
