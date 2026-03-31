@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/unpoly@3.12.1/unpoly.min.css">
     <script>
         up.status.config.currentClasses.push('menu-active');
+        up.layer.config.modal.openAnimation = 'move-from-top'
+        up.layer.config.modal.closeAnimation = 'move-to-top'
     </script>
     {% block head %}{% endblock %}
 </head>
@@ -179,7 +181,7 @@
                             <li><hr class="my-1 border-zinc-100"></li>
                             <li>
                                 <a href="{% url 'projects:project_create' %}"
-                                   up-layer="new" up-mode="modal" up-size="small" up-history="false"
+                                   up-layer="new" up-mode="modal" up-size="medium" up-history="false"
                                    up-on-accepted="up.visit('/', { target: 'body' })"
                                    class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
