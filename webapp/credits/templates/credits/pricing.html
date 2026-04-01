@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block header_title %}Pricing{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold text-zinc-900">Choose a Plan</h2>
+        <p class="mt-1 text-sm text-zinc-500">Select a subscription to get image generation credits.</p>
+    </div>
+
+    <stripe-pricing-table
+        pricing-table-id="{{ stripe_pricing_table_id }}"
+        publishable-key="{{ stripe_publishable_key }}"
+        client-reference-id="{{ request.user.id }}"
+        customer-email="{{ request.user.email }}"
+        success-url="{{ success_url }}">
+    </stripe-pricing-table>
+</div>
+{% endblock %}

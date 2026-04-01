@@ -8,6 +8,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from credits.constants import IMAGE_GENERATION_COST
+from credits.models import available_credits, spend_credits
+
 from brand.models import Brand
 from media_library.models import Image, ImageGroup
 from .ai_services import suggest_topic, generate_post_text, generate_post_image, edit_text
@@ -325,6 +328,13 @@ def ai_generate(request):
         )
     ) if seed_image_ids else []
 
+    # Check credits before image generation
+    if available_credits(request.user) < IMAGE_GENERATION_COST:
+        return JsonResponse(
+            {'error': 'Insufficient credits', 'credits_required': IMAGE_GENERATION_COST},
+            status=402,
+        )
+
     result = {}
 
     try:
@@ -336,6 +346,7 @@ def ai_generate(request):
     try:
         image = generate_post_image(brand, topic, post_type, seed_images, request.user, project=request.project)
         if image:
+            spend_credits(request.user, IMAGE_GENERATION_COST, 'Post image generation')
             result['image'] = {'id': image.id, 'url': image.url}
     except Exception:
         logger.exception('Failed to generate image (text was generated successfully)')

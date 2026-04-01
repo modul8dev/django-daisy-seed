@@ -13,6 +13,8 @@ from django.views.decorators.http import require_POST
 
 from accounts.forms import ProfileForm
 from brand.models import Brand
+from credits.models import CreditGrant, available_credits
+from credits.views import get_subscription_info
 from media_library.models import Image, ImageGroup
 from social_media.models import SocialMediaPost
 
@@ -124,7 +126,7 @@ def inspiration_cards(request):
 
     return render(request, "home/_inspiration_cards.html", {'cards': cards})
 
-
+@login_required
 def settings(request):
     profile_form = ProfileForm(instance=request.user)
 
@@ -135,8 +137,18 @@ def settings(request):
             messages.success(request, "Profile updated.")
             return redirect("settings")
 
+    now = timezone.now()
+    active_grants = list(
+        CreditGrant.objects.filter(user=request.user, expires_at__gt=now).order_by('expires_at')
+    )
+    total_credits = sum(g.remaining for g in active_grants)
+    subscription = get_subscription_info(request.user)
+
     return render(request, "home/settings.html", {
         "form": profile_form,
+        "active_grants": active_grants,
+        "total_credits": total_credits,
+        "subscription": subscription,
     })
 
 

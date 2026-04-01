@@ -48,6 +48,17 @@
                 <!-- Right side controls -->
                 <div class="flex items-center gap-1.5">
 
+                    <!-- Credits badge -->
+                    {% if user.is_authenticated %}
+                    <a href="/settings" up-follow
+                       class="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-900">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        {{ user_credits }} credit{{ user_credits|pluralize }}
+                    </a>
+                    {% endif %}
+
                     <!-- Search (desktop) -->
                     <div class="hidden md:flex w-44 cursor-text select-none items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:border-zinc-300">
                         <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -278,17 +289,20 @@
                             </a>
                         </li>
                         {% endif %}
-                        <li>
-                            <a href="/settings" up-follow
-                               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 [&.menu-active]:bg-indigo-50 [&.menu-active]:text-indigo-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                </svg>
-                                Account Settings
-                            </a>
-                        </li>
                     </ul>
+
+                    {% if not user_has_subscription %}
+                    <div class="mx-3 mt-4">
+                        <a href="{% url 'credits:pricing' %}"
+                           class="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            Upgrade to Pro
+                        </a>
+                        <p class="mt-1.5 text-center text-xs text-zinc-400">Get image generation credits</p>
+                    </div>
+                    {% endif %}
 
                 </nav>
 
@@ -325,6 +339,7 @@
     <script src="{% static 'js/image_editor.js' %}"></script>
     <script src="{% static 'js/scheduler.js' %}"></script>
     <script src="{% static 'js/preview-img.js' %}"></script>
+    <script async src="https://js.stripe.com/v3/pricing-table.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

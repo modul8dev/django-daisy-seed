@@ -41,6 +41,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 INSTALLED_APPS = [
     'django_cotton',
+    'credits',
     'projects',
     'integrations',
     'brand',
@@ -91,6 +92,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'projects.context_processors.project_context',
+                'credits.context_processors.credits_context',
             ],
         },
     },
@@ -203,6 +205,16 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # Email (console backend for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# ─── Stripe ──────────────────────────────────────────────────────────────────
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_51OEbyaJh6xSLoV7rrZnZlJugGPbctihnjdtpy0jmjSACiGvfcjDdqeCi5oXUFHFVlqVddSvoLsfmAdgcaPcsoNHU00o8vpkGwd')
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PRICING_TABLE_ID = os.environ.get('STRIPE_PRICING_TABLE_ID', 'prctbl_1TEuBpJh6xSLoV7rANYYuov9')
+
+# ─── Credits ─────────────────────────────────────────────────────────────────
+CREDITS_SIGNUP_GRANT = int(os.environ.get('CREDITS_SIGNUP_GRANT', '50'))
+CREDITS_SIGNUP_DAYS = int(os.environ.get('CREDITS_SIGNUP_DAYS', '30'))
 
 # ─── Authlib OAuth Clients (for integrations app) ──────────────────────
 AUTHLIB_OAUTH_CLIENTS = {

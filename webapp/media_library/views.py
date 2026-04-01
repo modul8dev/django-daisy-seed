@@ -8,6 +8,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.http import HttpResponse, JsonResponse
+
+from credits.constants import IMAGE_GENERATION_COST
+from credits.models import available_credits, spend_credits
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import strip_tags
@@ -372,6 +375,13 @@ def image_editor_generate(request):
     if not prompt:
         return JsonResponse({'error': 'Prompt is required.'}, status=400)
 
+    # Check credits before proceeding
+    if available_credits(request.user) < IMAGE_GENERATION_COST:
+        return JsonResponse(
+            {'error': 'Insufficient credits', 'credits_required': IMAGE_GENERATION_COST},
+            status=402,
+        )
+
     attachment_ids = body.get('attachment_ids', [])
     group_id = body.get('group_id')
 
@@ -414,6 +424,8 @@ def image_editor_generate(request):
 
     if image_obj is None:
         return JsonResponse({'error': 'Image generation failed — no image returned.'}, status=500)
+
+    spend_credits(request.user, IMAGE_GENERATION_COST, 'Image editor generation')
 
     return JsonResponse({
         'image': {'id': image_obj.id, 'url': image_obj.url},

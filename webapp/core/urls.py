@@ -31,6 +31,7 @@ urlpatterns = [
     path('scheduler/', include('scheduler.urls')),
     path('integrations/', include('integrations.urls')),
     path('projects/', include('projects.urls')),
+    path('credits/', include('credits.urls')),
     path("", include("home.urls")),
 ]
 
