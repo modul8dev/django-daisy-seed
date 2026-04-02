@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'projects',
     'integrations',
     'brand',
+    'campaigns',
     'social_media',
     'scheduler',
     'media_library',
