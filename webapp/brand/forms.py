@@ -1,9 +1,11 @@
 from django import forms
+from django.conf.global_settings import LANGUAGES
 
 from media_library.models import ImageGroup
 
 from .models import Brand
 
+SORTED_LANGUAGES = sorted(LANGUAGES, key=lambda x: x[1])
 
 class BrandForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
@@ -33,10 +35,10 @@ class BrandForm(forms.ModelForm):
                 'placeholder': 'A short description of your brand…',
                 'rows': 3,
             }),
-            'language': forms.TextInput(attrs={
-                'class': 'input input-bordered w-full',
-                'placeholder': 'e.g. English, French…',
-            }),
+            'language': forms.Select(
+                choices=[('', '— Select language —')] + SORTED_LANGUAGES,
+                attrs={'class': 'select select-bordered w-full'},
+            ),
             'style_guide': forms.Textarea(attrs={
                 'class': 'textarea textarea-bordered w-full',
                 'placeholder': 'Tone of voice, visual style, messaging principles…',

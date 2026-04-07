@@ -16,7 +16,7 @@ class Brand(models.Model):
     website_url = models.URLField(blank=True)
     name = models.CharField(max_length=255, blank=True)
     summary = models.TextField(blank=True)
-    language = models.CharField(max_length=100, blank=True)
+    language = models.CharField(max_length=10, blank=True)
     style_guide = models.TextField(blank=True)
     logo = models.ForeignKey(
         'media_library.ImageGroup',
