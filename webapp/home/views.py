@@ -55,16 +55,7 @@ def home(request):
         brand = None
         has_brand = False
 
-    products = list(
-        ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT)
-        .prefetch_related('images')[:50]
-    )
-    if len(products) > 6:
-        products = random.sample(products, 6)
-    else:
-        products = products[:6]
-
-    has_products = bool(products)
+    has_products = ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT).exists()
 
     image_groups = (
         ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.MANUAL)
@@ -77,7 +68,6 @@ def home(request):
         'scheduled_posts': scheduled_posts,
         'brand': brand,
         'has_brand': has_brand,
-        'products': products,
         'has_products': has_products,
         'image_groups': image_groups,
     })

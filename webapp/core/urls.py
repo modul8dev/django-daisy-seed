@@ -26,7 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('media-library/', include('media_library.urls')),
-    path('products/', ml_views.product_list, name='product_list'),
+    path('catalog/', ml_views.catalog, name='catalog'),
     path('social-media/', include('social_media.urls')),
     path('campaigns/', include('campaigns.urls')),
     path('scheduler/', include('scheduler.urls')),

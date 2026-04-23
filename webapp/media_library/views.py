@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .forms import ImageFormSet, ImageGroupForm
@@ -29,15 +30,11 @@ def _accept_layer_response():
 
 
 @login_required
-def image_group_list(request):
-    groups = ImageGroup.objects.filter(project=request.project).exclude(type=ImageGroup.GroupType.PRODUCT).prefetch_related('images')
-    return render(request, 'media_library/image_group_list.html', {'groups': groups})
+def catalog(request):
+    groups = ImageGroup.objects.filter(project=request.project).prefetch_related('images')
+    group_types = ImageGroup.GroupType.choices
+    return render(request, 'media_library/catalog.html', {'groups': groups, 'group_types': group_types})
 
-
-@login_required
-def product_list(request):
-    groups = ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT).prefetch_related('images')
-    return render(request, 'media_library/product_list.html', {'groups': groups})
 
 
 @login_required
@@ -90,7 +87,12 @@ def image_group_edit(request, pk):
 def image_group_delete(request, pk):
     group = get_object_or_404(ImageGroup, pk=pk, project=request.project)
     group.delete()
-    response = redirect(reverse('media_library:image_group_list'))
+    next_url = request.POST.get('next', '')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        redirect_to = next_url
+    else:
+        redirect_to = reverse('media_library:image_group_list')
+    response = redirect(redirect_to)
     response['X-Up-Events'] = '[{"type":"media_library:changed"}]'
     return response
 

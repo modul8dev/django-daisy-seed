@@ -5,7 +5,6 @@ from . import views
 app_name = 'media_library'
 
 urlpatterns = [
-    path('', views.image_group_list, name='image_group_list'),
     path('create/', views.image_group_create, name='image_group_create'),
     path('add-url-image/', views.add_url_image, name='add_url_image'),
     path('import-products/', views.products_import, name='products_import'),
