@@ -9,7 +9,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from media_library.models import Image, ImageGroup
-from media_library.views import _import_shopify_products, _import_url_images
+from media_library.views import _detect_and_import_products, _import_url_images
 from prompts.brand_extract import BRAND_EXTRACT_PROMPT
 
 from media_library.models import ImageGroup
@@ -96,11 +96,9 @@ def _scrape_brand_data(user, project, url):
     brand_language = extracted.get('language', '').strip()
     brand_style_guide = extracted.get('style_guide', '').strip()
 
-    # ── 7d: Import all website images to media library ──────────────────────
-    _import_url_images(user, url, project=project)  # errors are non-fatal
 
-    # ── 7e: Try Shopify import (silently skip if not Shopify) ───────────────
-    _import_shopify_products(user, url, project=project)  # errors are non-fatal
+    # ── 7e: Import products (Shopify, WooCommerce, or domain crawl) ──────────
+    _detect_and_import_products(user, url, project=project)  # errors are non-fatal
 
     # ── 7c: Create logo ImageGroup ───────────────────────────────────────────
     logo_group = None

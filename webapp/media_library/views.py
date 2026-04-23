@@ -112,38 +112,44 @@ def add_url_image(request):
     return render(request, 'media_library/url_image_modal.html', {'error': error, 'url': url})
 
 
-def _import_shopify_products(user, shop_url, project=None):
+def _is_shopify(base_url):
+    """Return True if base_url responds like a Shopify store."""
+    graphql_url = f'{base_url}/api/2026-01/graphql.json'
+    try:
+        resp = http_requests.post(
+            graphql_url,
+            json={'query': '{ shop { name } }'},
+            headers={'Content-Type': 'application/json'},
+            timeout=10,
+        )
+        # Shopify returns 401/403 without a storefront token; non-Shopify sites differ
+        return resp.status_code in (200, 401, 403)
+    except http_requests.RequestException:
+        return False
+
+
+def _is_woocommerce(base_url):
+    """Return True if base_url exposes the WooCommerce Store API."""
+    api_url = f'{base_url}/wp-json/wc/store/v1/products'
+    try:
+        resp = http_requests.get(
+            api_url,
+            params={'page': 1, 'per_page': 1},
+            headers={'Content-Type': 'application/json'},
+            timeout=10,
+        )
+        return resp.status_code == 200
+    except http_requests.RequestException:
+        return False
+
+
+def _import_shopify_products(user, base_url, project=None):
     """
     Import products and images from a Shopify store.
     Returns a tuple (success: bool, error: str or None).
     """
-    raw_input = shop_url
-
-    # Normalize URL
-    if not shop_url.startswith(('http://', 'https://')):
-        shop_url = 'https://' + shop_url
-
-    parsed = urlparse(shop_url)
+    parsed = urlparse(base_url)
     shop_domain = parsed.hostname
-
-    if not shop_domain or '.' not in shop_domain:
-        return False, 'Please enter a valid store URL.'
-
-    # Verify it's a Shopify store by pinging the GraphQL endpoint
-    graphql_url = f'https://{shop_domain}/api/2026-01/graphql.json'
-    try:
-        resp = http_requests.post(
-            graphql_url,
-            json={"query": "{ shop { name } }"},
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
-    except http_requests.RequestException:
-        return False, 'Could not connect to store. Please check the URL.'
-
-    # Shopify returns 401/403 without a valid token; non-Shopify sites differ
-    if resp.status_code not in (200, 401, 403):
-        return False, 'This does not appear to be a Shopify store.'
 
     # Fetch all products via the public /products.json endpoint
     all_products = []
@@ -187,21 +193,188 @@ def _import_shopify_products(user, shop_url, project=None):
     return True, None
 
 
+def _import_woocommerce_products(user, base_url, project=None):
+    """
+    Import products and images from a WooCommerce store via the Store API.
+    Returns a tuple (success: bool, error: str or None).
+    """
+    api_url = f'{base_url}/wp-json/wc/store/v1/products'
+
+    page = 1
+    per_page = 50
+    all_products = []
+
+    while page <= 40:
+        try:
+            resp = http_requests.get(
+                api_url,
+                params={'page': page, 'per_page': per_page},
+                headers={'Content-Type': 'application/json'},
+                timeout=30,
+            )
+        except http_requests.RequestException:
+            return False, 'Could not connect to store. Please check the URL.'
+
+        if resp.status_code != 200:
+            break
+
+        try:
+            products = resp.json()
+        except ValueError:
+            return False, 'Unexpected response from the store.'
+
+        if not isinstance(products, list):
+            return False, 'Unexpected response from the store.'
+
+        if not products:
+            break
+
+        all_products.extend(products)
+
+        total_pages_header = resp.headers.get('X-WP-TotalPages')
+        if total_pages_header:
+            try:
+                if page >= int(total_pages_header):
+                    break
+            except ValueError:
+                pass
+
+        if len(products) < per_page:
+            break
+
+        page += 1
+
+    if not all_products:
+        return False, 'No products found in this store.'
+
+    for product in all_products:
+        name = product.get('name') or 'Untitled Product'
+        description_html = product.get('description') or product.get('short_description') or ''
+        description = strip_tags(description_html).strip()[:500]
+
+        group = ImageGroup.objects.create(
+            user=user,
+            project=project,
+            title=name,
+            description=description,
+            type=ImageGroup.GroupType.PRODUCT,
+        )
+
+        for img_data in product.get('images', []):
+            img_src = img_data.get('src', '')
+            if img_src:
+                Image.objects.create(image_group=group, external_url=img_src)
+
+    return True, None
+
+
+def _import_domain_with_crawl(user, base_url, project=None):
+    """
+    Crawl a domain with Firecrawl (up to 100 pages, skipping /blog) and create
+    an ImageGroup per page from the images and description found on each page.
+    Returns (success: bool, error: str | None).
+    """
+    api_key = os.environ.get('FIRECRAWL_API_KEY', '')
+    if not api_key:
+        return False, 'FIRECRAWL_API_KEY is not configured.'
+
+    from firecrawl import Firecrawl
+    fc = Firecrawl(api_key=api_key)
+
+    try:
+        result = fc.crawl(
+            base_url,
+            limit=100,
+            exclude_paths=['/blog.*'],
+            crawl_entire_domain=True,
+            scrape_options={
+                'formats': ['images'],
+                'only_main_content': True,
+            },
+        )
+    except Exception as exc:
+        return False, f'Failed to crawl site: {exc}'
+
+    pages = getattr(result, 'data', None) or []
+    if not pages:
+        return False, 'No pages found at this URL.'
+
+    created = 0
+    for doc in pages:
+        image_urls = getattr(doc, 'images', None) or []
+        if not image_urls:
+            continue
+
+        metadata = getattr(doc, 'metadata', None) or {}
+        if isinstance(metadata, dict):
+            title = (metadata.get('title') or metadata.get('og_title') or '').strip()
+            description = (metadata.get('description') or metadata.get('og_description') or '').strip()[:500]
+            page_url = metadata.get('source_url') or metadata.get('url') or base_url
+        else:
+            title = (getattr(metadata, 'title', '') or '').strip()
+            description = (getattr(metadata, 'description', '') or '').strip()[:500]
+            page_url = getattr(metadata, 'source_url', '') or base_url
+
+        if not title:
+            title = urlparse(page_url).path.strip('/') or urlparse(page_url).hostname or page_url
+
+        group = ImageGroup.objects.create(
+            user=user,
+            project=project,
+            title=title[:200],
+            description=description,
+            type=ImageGroup.GroupType.PRODUCT,
+        )
+        for img_url in image_urls:
+            Image.objects.create(image_group=group, external_url=img_url)
+        created += 1
+
+    if created == 0:
+        return False, 'No images found on any crawled page.'
+
+    return True, None
+
+
+def _detect_and_import_products(user, shop_url, project=None):
+    """
+    Auto-detect whether shop_url is a WooCommerce or Shopify store, then import.
+    Returns a tuple (success: bool, error: str or None).
+    """
+    if not shop_url.startswith(('http://', 'https://')):
+        shop_url = 'https://' + shop_url
+
+    parsed = urlparse(shop_url)
+    shop_domain = parsed.hostname
+
+    if not shop_domain or '.' not in shop_domain:
+        return False, 'Please enter a valid store URL.'
+
+    base_url = f'https://{shop_domain}'
+
+    if _is_woocommerce(base_url):
+        return _import_woocommerce_products(user, base_url, project=project)
+
+    if _is_shopify(base_url):
+        return _import_shopify_products(user, base_url, project=project)
+
+    return _import_domain_with_crawl(user, base_url, project=project)
+
+
 @login_required
-def shopify_import(request):
+def products_import(request):
     if request.method == 'POST':
         shop_url = request.POST.get('shop_url', '').strip()
-        success, error = _import_shopify_products(request.user, shop_url, project=request.project)
-        
+        success, error = _detect_and_import_products(request.user, shop_url, project=request.project)
+
         if success:
             return _accept_layer_response()
-        
-        return render(request, 'media_library/shopify_import.html', {
+
+        return render(request, 'media_library/products_import.html', {
             'error': error,
             'shop_url': shop_url,
         })
 
-    return render(request, 'media_library/shopify_import.html')
+    return render(request, 'media_library/products_import.html')
 
 
 class _ImgSrcParser(HTMLParser):
