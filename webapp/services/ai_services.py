@@ -1,13 +1,13 @@
-import io
 import os
 from enum import Enum
 
 from django.core.files.base import ContentFile
 
 from media_library.models import Image, ImageGroup
-from prompts.social_media_edit import EDIT_ACTIONS, SOCIAL_MEDIA_EDIT_SYSTEM, SYSTEM_PROMPTS
-from prompts.social_media_generate import SOCIAL_MEDIA_GENERATE_PROMPT
-from prompts.social_media_topic import SOCIAL_MEDIA_TOPIC_PROMPT
+from services.prompts.social_media_edit import EDIT_ACTIONS, SOCIAL_MEDIA_EDIT_SYSTEM, SYSTEM_PROMPTS
+from services.prompts.social_media_generate import SOCIAL_MEDIA_GENERATE_PROMPT
+from services.prompts.social_media_image import IMAGE_PRE_PROMPTS, IMAGE_TYPOGRAPHY_SUFFIX, IMAGE_VISUAL_FIDELITY_SUFFIX
+from services.prompts.social_media_topic import SOCIAL_MEDIA_TOPIC_PROMPT
 
 
 class OpenAIModel(Enum):
@@ -21,15 +21,18 @@ def _get_openai_client():
     return OpenAI(api_key=os.environ.get('OPENAI_API_KEY', ''))
 
 
-def _openai_chat(messages, model=OpenAIModel.QUICK, temperature=0.7, max_tokens=1000):
+def _openai_chat(messages, model=OpenAIModel.QUICK, temperature=0.7, max_tokens=1000, response_format=None):
     """Send a chat request to OpenAI and return the response text."""
     client = _get_openai_client()
-    response = client.chat.completions.create(
+    kwargs = dict(
         model=model.value,
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
     )
+    if response_format is not None:
+        kwargs['response_format'] = response_format
+    response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content.strip()
 
 
@@ -59,6 +62,23 @@ def _get_brand_context(brand):
     }
 
 
+def extract_brand_data(markdown_content):
+    """Extract structured brand data from markdown content using OpenAI. Returns a dict."""
+    import json
+    from services.prompts.brand_extract import BRAND_EXTRACT_PROMPT
+
+    raw = _openai_chat(
+        messages=[
+            {'role': 'system', 'content': BRAND_EXTRACT_PROMPT},
+            {'role': 'user', 'content': markdown_content[:12000]},
+        ],
+        temperature=0.2,
+        max_tokens=1000,
+        response_format={'type': 'json_object'},
+    )
+    return json.loads(raw)
+
+
 def suggest_topic(brand, seed_images):
     """Suggest topics based on brand context and seed images. Returns a list."""
     import re
@@ -80,20 +100,6 @@ def suggest_topic(brand, seed_images):
         if cleaned:
             topics.append(cleaned)
     return topics if topics else [raw]
-
-
-def generate_post_text(brand, topic, post_type, seed_images, platforms):
-    """Generate post text using OpenAI."""
-    ctx = _get_brand_context(brand)
-    prompt = SOCIAL_MEDIA_GENERATE_PROMPT.format(
-        topic=topic or 'general brand post',
-        post_type=post_type or 'lifestyle',
-        platforms=', '.join(platforms) if platforms else 'general',
-        image_descriptions=_build_image_descriptions(seed_images),
-        **ctx,
-    )
-    return _openai_chat(messages=[{'role': 'user', 'content': prompt}])
-
 
 def _generate_gemini_image(prompt, input_images=None):
     """Call Gemini image generation and return (image_data, mime_type) or None."""
@@ -137,37 +143,86 @@ def _generate_gemini_image(prompt, input_images=None):
 
     return None
 
+def generate_post_text(brand, topic, post_type, seed_images, platforms):
+    """Generate post text using OpenAI."""
+    ctx = _get_brand_context(brand)
+    prompt = SOCIAL_MEDIA_GENERATE_PROMPT.format(
+        topic=topic or 'general brand post',
+        post_type=post_type or 'lifestyle',
+        platforms=', '.join(platforms) if platforms else 'general',
+        image_descriptions=_build_image_descriptions(seed_images),
+        **ctx,
+    )
+    return _openai_chat(messages=[{'role': 'user', 'content': prompt}])
+
+def _generate_image_prompt(brand, topic, post_type, seed_images):
+    """Use OpenAI to generate a detailed image prompt based on brand, topic, post type, and seed images."""
+    pre_prompt_template = IMAGE_PRE_PROMPTS.get((post_type or '').lower())
+    if not pre_prompt_template:
+        return None
+
+    ctx = _get_brand_context(brand)
+    brand_info = (
+        f"Name: {ctx['brand_name']}\n"
+        f"Summary: {ctx['brand_summary']}\n"
+        f"Style: {ctx['brand_style_guide']}\n"
+        f"Language: {ctx['brand_language']}"
+    )
+    product_info = _build_image_descriptions(seed_images) or 'No product reference provided.'
+
+    pre_prompt = pre_prompt_template.format(
+        brand_info=brand_info,
+        product_info=product_info,
+        topic=topic or 'general brand post',
+    )
+
+    image_prompt = _openai_chat(
+        messages=[{'role': 'user', 'content': pre_prompt}],
+        model=OpenAIModel.NORMAL,
+        temperature=1.0,
+        max_tokens=1000,
+    )
+
+    if (post_type or '').lower() in ('product', 'lifestyle'):
+        image_prompt += IMAGE_TYPOGRAPHY_SUFFIX
+    image_prompt += IMAGE_VISUAL_FIDELITY_SUFFIX
+
+    return image_prompt
+
 
 def generate_post_image(brand, topic, post_type, seed_images, user, project=None):
     """Generate an image using Gemini and save it to the media library."""
-    # Build pre-prompt: include seed image names/descriptions and instruct AI
-    seed_lines = []
-    if seed_images:
-        seed_lines.append('Reference images provided for context and style inspiration:')
-        for i, img in enumerate(seed_images, 1):
-            name = img.image.name.split('/')[-1] if img.image and img.image.name else str(img)
-            description = str(img)
-            seed_lines.append(f'  {i}. Name: {name} — {description}')
-        seed_lines.append(
-            'Use the reference images above to inform visual style, composition, and subject matter.'
+    # Step 1: generate a detailed image prompt via OpenAI
+    prompt = _generate_image_prompt(brand, topic, post_type, seed_images)
+
+    # Fallback to a simple prompt if no matching pre-prompt template exists
+    if not prompt:
+        seed_lines = []
+        if seed_images:
+            seed_lines.append('Reference images provided for context and style inspiration:')
+            for i, img in enumerate(seed_images, 1):
+                name = img.image.name.split('/')[-1] if img.image and img.image.name else str(img)
+                description = str(img)
+                seed_lines.append(f'  {i}. Name: {name} — {description}')
+            seed_lines.append(
+                'Use the reference images above to inform visual style, composition, and subject matter.'
+            )
+            seed_lines.append('')
+        pre_prompt = '\n'.join(seed_lines) if seed_lines else ''
+        prompt = (
+            f"{pre_prompt}"
+            f"Create a professional social media image for brand '{brand.name or 'brand'}'. "
+            f"Topic: {topic or 'general'}. Post type: {post_type or 'lifestyle'}. "
+            f"Style: {brand.style_guide or 'professional, clean, modern'}."
         )
-        seed_lines.append('')
 
-    pre_prompt = '\n'.join(seed_lines) if seed_lines else ''
-    prompt = (
-        f"{pre_prompt}"
-        f"Create a professional social media image for brand '{brand.name or 'brand'}'. "
-        f"Topic: {topic or 'general'}. Post type: {post_type or 'lifestyle'}. "
-        f"Style: {brand.style_guide or 'professional, clean, modern'}."
-    )
-
+    # Step 2: generate the actual image using the prompt
     result = _generate_gemini_image(prompt, input_images=seed_images)
     if result is None:
         return None
 
     image_data, mime_type = result
 
-    # Use the same image group as the seed images; fall back to a dedicated group
     if seed_images:
         group = seed_images[0].image_group
     else:
@@ -211,10 +266,7 @@ def edit_text(action, text, brand, platform=None, instruction=None, system_promp
 
 def generate_editor_image(prompt, input_images, brand, user, output_group):
     """Generate an image via the Image Editor using Gemini and save to output_group."""
-    # Inject brand context into the prompt
-    if brand:
-        brand_context = _get_brand_context(brand)
-
+    brand_context = _get_brand_context(brand) if brand else None
     full_prompt = f"{brand_context} {prompt}".strip() if brand_context else prompt
 
     result = _generate_gemini_image(full_prompt, input_images=input_images)

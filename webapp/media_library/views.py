@@ -585,7 +585,7 @@ def image_editor_generate(request):
     # Get brand for context injection
     brand = getattr(request.project, 'brand', None)
 
-    from social_media.ai_services import generate_editor_image
+    from services.ai_services import generate_editor_image
     try:
         image_obj = generate_editor_image(
             prompt=prompt,

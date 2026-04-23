@@ -13,7 +13,7 @@ from credits.models import available_credits, spend_credits
 
 from brand.models import Brand
 from media_library.models import Image, ImageGroup
-from .ai_services import suggest_topic, generate_post_text, generate_post_image, edit_text
+from services.ai_services import suggest_topic, generate_post_text, generate_post_image, edit_text
 from .forms import (
     SharedMediaFormSet,
     SocialMediaPostForm,

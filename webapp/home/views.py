@@ -97,7 +97,7 @@ def inspiration_cards(request):
         images = list(group.images.all())
         seed_images = images[:2]
         try:
-            from social_media.ai_services import suggest_topic
+            from services.ai_services import suggest_topic
             topics = suggest_topic(brand, seed_images)
             topic = topics[0] if topics else ''
         except Exception:

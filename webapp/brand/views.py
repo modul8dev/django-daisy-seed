@@ -1,4 +1,3 @@
-import json
 import os
 from urllib.parse import urljoin, urlparse
 
@@ -10,7 +9,7 @@ from django.views.decorators.http import require_POST
 
 from media_library.models import Image, ImageGroup
 from media_library.views import _detect_and_import_products, _import_url_images
-from prompts.brand_extract import BRAND_EXTRACT_PROMPT
+from services.ai_services import extract_brand_data
 
 from media_library.models import ImageGroup
 from .forms import BrandForm, ScrapeURLForm
@@ -56,8 +55,6 @@ def _scrape_brand_data(user, project, url):
     openai_key = os.environ.get('OPENAI_API_KEY', '')
     if not openai_key:
         return False, 'OPENAI_API_KEY is not configured.'
-
-    # ── 7a: Firecrawl scrape (markdown + branding) ──────────────────
     from firecrawl import Firecrawl
     fc = Firecrawl(api_key=firecrawl_key)
 
@@ -73,21 +70,9 @@ def _scrape_brand_data(user, project, url):
     if not markdown_content:
         return False, 'Could not retrieve page content for analysis.'
 
-    # ── 7b: OpenAI structured extraction ────────────────────────────────────
-    from openai import OpenAI
-    client = OpenAI(api_key=openai_key)
-
+    # ── 7b: OpenAI structured extraction ────────────────────────
     try:
-        response = client.chat.completions.create(
-            model='gpt-4o-mini',
-            messages=[
-                {'role': 'system', 'content': BRAND_EXTRACT_PROMPT},
-                {'role': 'user', 'content': markdown_content[:12000]},
-            ],
-            response_format={'type': 'json_object'},
-            temperature=0.2,
-        )
-        extracted = json.loads(response.choices[0].message.content)
+        extracted = extract_brand_data(markdown_content)
     except Exception as exc:
         return False, f'Failed to extract brand data: {exc}'
 

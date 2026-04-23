@@ -39,9 +39,9 @@ Be clear, specific, and visually descriptive.
 Focus on composition, subject, lighting, materials, colors, and mood.
 Use concise, natural language (no fluff).
 Ensure outputs are realistic and physically plausible.
-Maintain consistency with the brand’s tone and style.
+Maintain consistency with the brand's tone and style.
 Prefer structured prompts: subject → scene → style → lighting → camera → details.
-Avoid vague terms (e.g., “nice”, “beautiful”); replace with concrete descriptors.
+Avoid vague terms (e.g., "nice", "beautiful"); replace with concrete descriptors.
 When relevant, incorporate product-focused details (angles, textures, use context).
 Output only the final prompt (no explanations).
 """,
