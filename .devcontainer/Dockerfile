@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/devcontainers/python:2-3.14-trixie
 
+COPY .devcontainer/entrypoint.sh /usr/local/bin/devcontainer-entrypoint.sh
+RUN chmod +x /usr/local/bin/devcontainer-entrypoint.sh
+
 # Install Node.js (LTS) and PostgreSQL client
 RUN rm -f /etc/apt/sources.list.d/yarn.list \
     && apt-get update \
@@ -14,4 +17,5 @@ WORKDIR /workspace
 EXPOSE 8100
 
 # Default command: run the startup script (repo must be mounted at /workspace)
+ENTRYPOINT ["/usr/local/bin/devcontainer-entrypoint.sh"]
 CMD ["/workspace/start.sh"]

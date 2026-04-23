@@ -7,6 +7,8 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace:delegated
+      - openai-chatgpt:/home/vscode/.config/Code/User/globalStorage/openai.chatgpt
+      - codex-config:/home/vscode/.codex
     command: sleep infinity
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/webapp
@@ -26,4 +28,6 @@ services:
       - "5432:5432"
 
 volumes:
+  openai-chatgpt:
+  codex-config:
   postgres-data:
