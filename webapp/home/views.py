@@ -90,7 +90,7 @@ def inspiration_cards(request):
     if not brand or not product_groups:
         return render(request, "home/_inspiration_cards.html", {'cards': []})
 
-    selected = random.sample(product_groups, min(3, len(product_groups)))
+    selected = random.sample(product_groups, min(6, len(product_groups)))
 
     cards = []
     for group in selected:
