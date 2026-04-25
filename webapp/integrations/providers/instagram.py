@@ -4,7 +4,7 @@ from ..models import IntegrationConnection
 from ..oauth import oauth
 from .base import BaseProvider
 
-IG_GRAPH_BASE = 'https://graph.instagram.com/v22.0'
+IG_GRAPH_BASE = 'https://graph.instagram.com/v25.0'
 
 
 class InstagramProvider(BaseProvider):

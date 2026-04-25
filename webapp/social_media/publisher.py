@@ -10,6 +10,7 @@ connections and dispatches to the appropriate publisher.
 
 import logging
 import mimetypes
+import time
 
 import requests as http_requests
 from django.utils import timezone
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 LINKEDIN_API_BASE = 'https://api.linkedin.com'
 GRAPH_API_BASE = 'https://graph.facebook.com/v22.0'
-IG_GRAPH_BASE = 'https://graph.instagram.com/v22.0'
+IG_GRAPH_BASE = 'https://graph.instagram.com/v25.0'
 TWITTER_API_BASE = 'https://api.twitter.com/2'
 TWITTER_UPLOAD_BASE = 'https://upload.twitter.com/1.1'
 
@@ -67,7 +68,7 @@ def publish_to_linkedin(platform_variant, connection, base_url=''):
 
     auth_headers = {
         'Authorization': f'Bearer {token}',
-        'LinkedIn-Version': '202411',
+        'LinkedIn-Version': '202604',
         'X-Restli-Protocol-Version': '2.0.0',
     }
 
@@ -229,6 +230,31 @@ def publish_to_facebook(platform_variant, connection, base_url=''):
         feed_resp.raise_for_status()
 
 
+def _wait_for_ig_container(container_id, access_token, timeout=90, interval=5):
+    """
+    Poll the Instagram container status until it reaches FINISHED.
+    Raises RuntimeError on ERROR status or if timeout is exceeded.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        status_resp = http_requests.get(
+            f'{IG_GRAPH_BASE}/{container_id}',
+            params={'fields': 'status_code', 'access_token': access_token},
+            timeout=30,
+        )
+        status_resp.raise_for_status()
+        status_code = status_resp.json().get('status_code')
+        if status_code == 'FINISHED':
+            return
+        if status_code == 'ERROR':
+            raise RuntimeError(f'Instagram media container {container_id} failed with ERROR status.')
+        time.sleep(interval)
+    raise RuntimeError(
+        f'Instagram media container {container_id} did not finish processing within {timeout}s '
+        f'(last status: {status_code}).'
+    )
+
+
 # ─── Instagram ────────────────────────────────────────────────────────────────
 
 
@@ -269,6 +295,7 @@ def publish_to_instagram(platform_variant, connection, base_url=''):
                 f'{IG_GRAPH_BASE}/{ig_user_id}/media',
                 data={
                     'image_url': image_url,
+                    'media_type': 'IMAGE',
                     'is_carousel_item': 'true',
                     'access_token': access_token,
                 },
@@ -289,6 +316,9 @@ def publish_to_instagram(platform_variant, connection, base_url=''):
         )
         carousel_resp.raise_for_status()
         container_id = carousel_resp.json()['id']
+
+    # Wait for the container to finish processing before publishing
+    _wait_for_ig_container(container_id, access_token)
 
     # Publish the container
     publish_resp = http_requests.post(
