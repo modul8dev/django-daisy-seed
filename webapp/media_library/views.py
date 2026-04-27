@@ -1,5 +1,6 @@
 import json
 import os
+from collections import Counter
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
@@ -19,6 +20,11 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .forms import ImageFormSet, ImageGroupForm
+from .image_heuristics import (
+    _normalize_image_identity,
+    _page_context_from_crawl_doc,
+    _select_distinct_product_image_urls,
+)
 from .models import Image, ImageGroup
 
 
@@ -301,30 +307,37 @@ def _import_domain_with_crawl(user, base_url, project=None):
     if not pages:
         return False, 'No pages found at this URL.'
 
-    created = 0
+    page_contexts = []
+    asset_page_counts = Counter()
     for doc in pages:
-        image_urls = getattr(doc, 'images', None) or []
+        context = _page_context_from_crawl_doc(doc, base_url)
+        page_contexts.append(context)
+
+        identities = {
+            _normalize_image_identity(urljoin(context['page_url'], image_url))
+            for image_url in context['image_urls']
+            if image_url and not image_url.startswith('data:')
+        }
+        asset_page_counts.update(identity for identity in identities if identity)
+
+    created = 0
+    for context in page_contexts:
+        image_urls = _select_distinct_product_image_urls(
+            context['image_urls'],
+            page_url=context['page_url'],
+            page_title=context['title'],
+            page_description=context['description'],
+            asset_page_counts=asset_page_counts,
+            total_pages=len(page_contexts),
+        )
         if not image_urls:
             continue
-
-        metadata = getattr(doc, 'metadata', None) or {}
-        if isinstance(metadata, dict):
-            title = (metadata.get('title') or metadata.get('og_title') or '').strip()
-            description = (metadata.get('description') or metadata.get('og_description') or '').strip()[:500]
-            page_url = metadata.get('source_url') or metadata.get('url') or base_url
-        else:
-            title = (getattr(metadata, 'title', '') or '').strip()
-            description = (getattr(metadata, 'description', '') or '').strip()[:500]
-            page_url = getattr(metadata, 'source_url', '') or base_url
-
-        if not title:
-            title = urlparse(page_url).path.strip('/') or urlparse(page_url).hostname or page_url
 
         group = ImageGroup.objects.create(
             user=user,
             project=project,
-            title=title[:200],
-            description=description,
+            title=context['title'],
+            description=context['description'],
             type=ImageGroup.GroupType.PRODUCT,
         )
         for img_url in image_urls:
