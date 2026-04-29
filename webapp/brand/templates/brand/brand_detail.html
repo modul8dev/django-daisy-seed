@@ -9,152 +9,50 @@
      up-hungry
      up-on-brand:scraped="up.reload('.brand-content')">
 
+{% if edit_mode %}<form method="post" action="{% url 'brand:brand_detail' %}" up-submit up-target=".brand-content">{% csrf_token %}{% endif %}
+
 {# ── Page header ─────────────────────────────────────────────────────────── #}
 <div class="flex items-center justify-between mb-6">
     <div>
         <h2 class="text-2xl font-bold text-zinc-900">Brand</h2>
         <p class="mt-1 text-sm text-zinc-500">Your brand identity, style guide, and assets.</p>
     </div>
-    {% if edit_mode %}
-    <a href="{% url 'brand:brand_scrape_modal' %}"
-       class="btn btn-outline gap-2"
-       up-layer="new"
-       up-mode="modal"
-       up-history="false"
-       up-dismissable="false"
-       up-on-accepted="up.reload('.brand-content')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-        </svg>
-        Scrape from Website
-    </a>
-    {% elif brand.has_data %}
-    <a href="{% url 'brand:brand_detail' %}?mode=edit"
-       class="btn btn-primary btn-sm gap-2"
-       up-follow
-       up-target=".brand-content">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
-        </svg>
-        Edit
-    </a>
-    {% endif %}
+    <div class="flex items-center gap-2">
+        {% if edit_mode %}
+        <a href="{% url 'brand:brand_scrape_modal' %}"
+           class="btn btn-outline btn-sm gap-2"
+           up-layer="new"
+           up-mode="modal"
+           up-history="false"
+           up-dismissable="false"
+           up-on-accepted="up.reload('.brand-content')">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Scrape from Website
+        </a>
+        <a href="{% url 'brand:brand_detail' %}"
+           class="btn btn-ghost btn-sm"
+           up-follow
+           up-target=".brand-content">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+        {% elif brand.has_data %}
+        <a href="{% url 'brand:brand_detail' %}?mode=edit"
+           class="btn btn-primary btn-sm gap-2"
+           up-follow
+           up-target=".brand-content">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+            </svg>
+            Edit
+        </a>
+        {% endif %}
+    </div>
 </div>
 
-{% if edit_mode %}
-{# ══════════════════════════════════════════════════════════════════════════ #}
-{# ── Edit mode ─────────────────────────────────────────────────────────── #}
-{# ══════════════════════════════════════════════════════════════════════════ #}
-
-<div class="rounded-2xl border border-zinc-200 bg-white p-6">
-    <h3 class="text-base font-semibold text-zinc-900 mb-5">Edit Brand Details</h3>
-    <form method="post" action="{% url 'brand:brand_detail' %}" up-submit up-target=".brand-content">
-        {% csrf_token %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            <div class="form-control">
-                <label class="label" for="id_name"><span class="label-text font-medium">Brand Name</span></label>
-                {{ form.name }}
-                {% if form.name.errors %}<span class="text-xs text-error mt-1">{{ form.name.errors.0 }}</span>{% endif %}
-            </div>
-
-            <div class="form-control">
-                <label class="label" for="id_website_url"><span class="label-text font-medium">Website URL</span></label>
-                {{ form.website_url }}
-                {% if form.website_url.errors %}<span class="text-xs text-error mt-1">{{ form.website_url.errors.0 }}</span>{% endif %}
-            </div>
-
-            <div class="form-control sm:col-span-2">
-                <label class="label" for="id_summary"><span class="label-text font-medium">Summary</span></label>
-                <c-ai_textarea
-                    actions="rewrite,improve,shorten,expand"
-                    custom_instruction=True
-                    auto_hide
-                    result_mode="replace"
-                >
-                    {{ form.summary }}
-                    {% if form.summary.errors %}<span class="text-xs text-error mt-1">{{ form.summary.errors.0 }}</span>{% endif %}
-                </c-ai_textarea>
-            </div>
-
-            <div class="form-control">
-                <label class="label" for="id_language"><span class="label-text font-medium">Language</span></label>
-                {{ form.language }}
-                {% if form.language.errors %}<span class="text-xs text-error mt-1">{{ form.language.errors.0 }}</span>{% endif %}
-            </div>
-
-            <div class="form-control"
-                 x-data="{
-                     groupId: '{{ form.logo.value }}',
-                     previewUrl: '{{ logo_preview_url|escapejs }}',
-                     onLogoPicked(val) {
-                         const imgId = val.imageIds && val.imageIds[0];
-                         this.groupId = imgId ? String(val.groupMap[imgId]) : '';
-                         this.previewUrl = imgId ? (val.urls[imgId] || '') : '';
-                     },
-                     clearLogo() { this.groupId = ''; this.previewUrl = ''; }
-                 }"
-                 @brand:logo-picked="onLogoPicked($event.detail)">
-                <label class="label"><span class="label-text font-medium">Logo</span></label>
-                <input type="hidden" name="logo" :value="groupId">
-                <div class="flex items-center gap-4">
-                    {# Preview #}
-                    <div class="flex size-20 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden p-2">
-                        <template x-if="previewUrl">
-                            <img :src="previewUrl" alt="Logo preview" class="max-h-full max-w-full object-contain">
-                        </template>
-                        <template x-if="!previewUrl">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3 19.5h18M3 4.5h18"/>
-                            </svg>
-                        </template>
-                    </div>
-                    {# Buttons #}
-                    <div class="flex flex-col gap-2">
-                        <a href="{% url 'media_library:image_picker' %}?target=logo{% if logo_image_id %}&selected={{ logo_image_id }}{% endif %}&max=1"
-                           class="btn btn-sm btn-outline"
-                           up-layer="new"
-                           up-mode="modal"
-                           up-target="#image-picker"
-                           up-history="false"
-                           up-size="large"
-                           up-on-accepted="this.dispatchEvent(new CustomEvent('brand:logo-picked', { bubbles: true, detail: value }))">
-                            Pick from Library
-                        </a>
-                        <button type="button" x-show="groupId" @click="clearLogo()"
-                                class="btn btn-sm btn-ghost text-error text-xs">
-                            Remove
-                        </button>
-                    </div>
-                </div>
-                {% if form.logo.errors %}<span class="text-xs text-error mt-1">{{ form.logo.errors.0 }}</span>{% endif %}
-            </div>
-
-            <div class="form-control sm:col-span-2">
-                <label class="label" for="id_style_guide"><span class="label-text font-medium">Style Guide</span></label>
-                {{ form.style_guide }}
-                {% if form.style_guide.errors %}<span class="text-xs text-error mt-1">{{ form.style_guide.errors.0 }}</span>{% endif %}
-            </div>
-
-        </div>
-        <div class="flex justify-end gap-3 mt-5">
-            <a href="{% url 'brand:brand_detail' %}"
-               class="btn btn-ghost"
-               up-follow
-               up-target=".brand-content">
-                Cancel
-            </a>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-        </div>
-    </form>
-</div>
-
-{% else %}
-{# ══════════════════════════════════════════════════════════════════════════ #}
-{# ── View mode ─────────────────────────────────────────────────────────── #}
-{# ══════════════════════════════════════════════════════════════════════════ #}
-
-{% if not brand.has_data %}
+{% if not brand.has_data and not edit_mode %}
 {# ── Empty state ─────────────────────────────────────────────────────────── #}
 <div class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-200 bg-white px-6 py-16 text-center">
     <div class="flex size-14 items-center justify-center rounded-full bg-indigo-50 mb-4">
@@ -172,15 +70,63 @@
         Set Up Brand
     </a>
 </div>
+
 {% else %}
-{# ── Brand data card ─────────────────────────────────────────────────────── #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# ── Unified brand layout — same cards in both view and edit mode ──────── #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    {# Left: Logo + quick info #}
+    {# ── Left column: Logo + identity ──────────────────────────────────────── #}
     <div class="lg:col-span-1">
-        <div class="rounded-2xl border border-zinc-200 bg-white p-6">
+        <div class="rounded-2xl border {% if edit_mode %}border-indigo-200{% else %}border-zinc-200{% endif %} bg-white p-6">
 
             {# Logo #}
+            {% if edit_mode %}
+            <div class="mb-5"
+                 x-data="{
+                     groupId: '{{ form.logo.value|default:'' }}',
+                     previewUrl: '{{ logo_preview_url|escapejs }}',
+                     onLogoPicked(val) {
+                         const imgId = val.imageIds && val.imageIds[0];
+                         this.groupId = imgId ? String(val.groupMap[imgId]) : '';
+                         this.previewUrl = imgId ? (val.urls[imgId] || '') : '';
+                     },
+                     clearLogo() { this.groupId = ''; this.previewUrl = ''; }
+                 }"
+                 @brand:logo-picked="onLogoPicked($event.detail)">
+                <input type="hidden" name="logo" :value="groupId">
+                <div class="flex items-center gap-4">
+                    <div class="flex size-20 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden p-2">
+                        <template x-if="previewUrl">
+                            <img :src="previewUrl" alt="Logo preview" class="max-h-full max-w-full object-contain">
+                        </template>
+                        <template x-if="!previewUrl">
+                            <div class="flex size-full items-center justify-center text-xl font-bold text-indigo-600">
+                                {{ brand.name|first|upper }}
+                            </div>
+                        </template>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <a href="{% url 'media_library:image_picker' %}?target=logo{% if logo_image_id %}&selected={{ logo_image_id }}{% endif %}&max=1"
+                           class="btn btn-sm btn-outline"
+                           up-layer="new"
+                           up-mode="modal"
+                           up-target="#image-picker"
+                           up-history="false"
+                           up-size="large"
+                           up-on-accepted="this.dispatchEvent(new CustomEvent('brand:logo-picked', { bubbles: true, detail: value }))">
+                            Change Logo
+                        </a>
+                        <button type="button" x-show="groupId" @click="clearLogo()"
+                                class="btn btn-sm btn-ghost text-error text-xs">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+                {% if form.logo.errors %}<span class="text-xs text-error mt-1">{{ form.logo.errors.0 }}</span>{% endif %}
+            </div>
+            {% else %}
             <div class="mb-5">
                 {% with logo_img=brand.logo.images.first %}
                 {% if logo_img %}
@@ -193,44 +139,226 @@
                 {% endif %}
                 {% endwith %}
             </div>
+            {% endif %}
 
+            {# Brand name #}
+            {% if edit_mode %}
+            <input type="text" name="name" value="{{ brand.name|default:'' }}"
+                   class="text-lg font-bold text-zinc-900 w-full bg-transparent border-0 border-b border-zinc-200 focus:border-indigo-400 focus:outline-none pb-0.5 mb-1 placeholder:text-zinc-300"
+                   placeholder="Brand name">
+            {% if form.name.errors %}<span class="text-xs text-error">{{ form.name.errors.0 }}</span>{% endif %}
+            {% else %}
             <h3 class="text-lg font-bold text-zinc-900 mb-1">{{ brand.name }}</h3>
-            {% if brand.website_url %}
+            {% endif %}
+
+            {# Website URL #}
+            {% if edit_mode %}
+            <input type="url" name="website_url" value="{{ brand.website_url|default:'' }}"
+                   class="text-xs text-indigo-600 w-full bg-transparent border-0 border-b border-zinc-200 focus:border-indigo-400 focus:outline-none pb-0.5 mt-1 mb-3 placeholder:text-zinc-300"
+                   placeholder="https://yourbrand.com">
+            {% if form.website_url.errors %}<span class="text-xs text-error">{{ form.website_url.errors.0 }}</span>{% endif %}
+            {% elif brand.website_url %}
             <a href="{{ brand.website_url }}" target="_blank" rel="noopener noreferrer"
                class="text-xs text-indigo-600 hover:underline break-all">{{ brand.website_url }}</a>
             {% endif %}
-            {% if brand.language %}
-            <p class="mt-3 text-xs text-zinc-400 uppercase tracking-wider font-medium">Language</p>
-            <p class="text-sm text-zinc-700">{{ brand.language }}</p>
+
+            {# Language #}
+            <p class="mt-4 text-xs text-zinc-400 uppercase tracking-wider font-medium">Language</p>
+            {% if edit_mode %}
+            <div class="mt-1">
+                {{ form.language }}
+                {% if form.language.errors %}<span class="text-xs text-error">{{ form.language.errors.0 }}</span>{% endif %}
+            </div>
+            {% else %}
+            <p class="text-sm text-zinc-700 mt-1">{{ brand.language|default:"—" }}</p>
             {% endif %}
 
         </div>
     </div>
 
-    {# Right: Summary + Style guide #}
+    {# ── Right column: content cards ───────────────────────────────────────── #}
     <div class="lg:col-span-2 space-y-6">
 
         {# Summary #}
-        {% if brand.summary %}
-        <div class="rounded-2xl border border-zinc-200 bg-white p-6">
+        {% if brand.summary or edit_mode %}
+        <div class="rounded-2xl border {% if edit_mode %}border-indigo-200{% else %}border-zinc-200{% endif %} bg-white p-6">
             <h4 class="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Summary</h4>
+            {% if edit_mode %}
+            <c-ai_textarea
+                actions="rewrite,improve,shorten,expand"
+                custom_instruction=True
+                auto_hide
+                result_mode="replace"
+                borderless
+            >
+                <textarea name="summary" rows="3"
+                          class="w-full bg-transparent text-sm text-zinc-700 leading-relaxed resize-none border-0 focus:outline-none placeholder:text-zinc-300"
+                          placeholder="A short description of your brand…">{{ brand.summary|default:'' }}</textarea>
+                {% if form.summary.errors %}<span class="text-xs text-error">{{ form.summary.errors.0 }}</span>{% endif %}
+            </c-ai_textarea>
+            {% else %}
             <p class="text-sm text-zinc-700 leading-relaxed">{{ brand.summary }}</p>
+            {% endif %}
         </div>
         {% endif %}
 
-        {# Style guide #}
-        {% if brand.style_guide %}
-        <div class="rounded-2xl border border-zinc-200 bg-white p-6">
+        {# Style Guide #}
+        {% if brand.style_guide or edit_mode %}
+        <div class="rounded-2xl border {% if edit_mode %}border-indigo-200{% else %}border-zinc-200{% endif %} bg-white p-6">
             <h4 class="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Style Guide</h4>
+            {% if edit_mode %}
+            <c-ai_textarea
+                actions="rewrite,improve,shorten,expand"
+                custom_instruction=True
+                auto_hide
+                result_mode="replace"
+                borderless
+            >
+                <textarea name="style_guide" rows="4"
+                          class="w-full bg-transparent text-sm text-zinc-700 leading-relaxed resize-none border-0 focus:outline-none placeholder:text-zinc-300"
+                          placeholder="Tone of voice, visual style, messaging principles…">{{ brand.style_guide|default:'' }}</textarea>
+                {% if form.style_guide.errors %}<span class="text-xs text-error">{{ form.style_guide.errors.0 }}</span>{% endif %}
+            </c-ai_textarea>
+            {% else %}
             <p class="text-sm text-zinc-700 leading-relaxed whitespace-pre-line">{{ brand.style_guide }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Tone of Voice #}
+        {% if brand.tone_of_voice or edit_mode %}
+        <div class="rounded-2xl border {% if edit_mode %}border-indigo-200{% else %}border-zinc-200{% endif %} bg-white p-6">
+            <h4 class="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Tone of Voice</h4>
+            {% if edit_mode %}
+            <c-ai_textarea
+                actions="rewrite,improve,shorten,expand"
+                custom_instruction=True
+                auto_hide
+                result_mode="replace"
+                borderless
+            >
+                <textarea name="tone_of_voice" rows="3"
+                          class="w-full bg-transparent text-sm text-zinc-700 leading-relaxed resize-none border-0 focus:outline-none placeholder:text-zinc-300"
+                          placeholder="Describe how your brand communicates…">{{ brand.tone_of_voice|default:'' }}</textarea>
+                {% if form.tone_of_voice.errors %}<span class="text-xs text-error">{{ form.tone_of_voice.errors.0 }}</span>{% endif %}
+            </c-ai_textarea>
+            {% else %}
+            <p class="text-sm text-zinc-700 leading-relaxed whitespace-pre-line">{{ brand.tone_of_voice }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Target Audience #}
+        {% if brand.target_audience or edit_mode %}
+        <div class="rounded-2xl border {% if edit_mode %}border-indigo-200{% else %}border-zinc-200{% endif %} bg-white p-6">
+            <h4 class="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Target Audience</h4>
+            {% if edit_mode %}
+            <c-ai_textarea
+                actions="rewrite,improve,shorten,expand"
+                custom_instruction=True
+                auto_hide
+                result_mode="replace"
+                borderless
+            >
+                <textarea name="target_audience" rows="3"
+                          class="w-full bg-transparent text-sm text-zinc-700 leading-relaxed resize-none border-0 focus:outline-none placeholder:text-zinc-300"
+                          placeholder="Who is your ideal customer?">{{ brand.target_audience|default:'' }}</textarea>
+                {% if form.target_audience.errors %}<span class="text-xs text-error">{{ form.target_audience.errors.0 }}</span>{% endif %}
+            </c-ai_textarea>
+            {% else %}
+            <p class="text-sm text-zinc-700 leading-relaxed whitespace-pre-line">{{ brand.target_audience }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Visual Identity #}
+        {% if brand.fonts or brand.primary_color or brand.secondary_color or edit_mode %}
+        <div class="rounded-2xl border {% if edit_mode %}border-indigo-200{% else %}border-zinc-200{% endif %} bg-white p-6">
+            <h4 class="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">Visual Identity</h4>
+            <div class="space-y-4">
+
+                {# Fonts #}
+                <div>
+                    <p class="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-1">Fonts</p>
+                    {% if edit_mode %}
+                    <input type="text" name="fonts" value="{{ brand.fonts|default:'' }}"
+                           class="w-full bg-transparent text-sm text-zinc-700 border-0 border-b border-zinc-200 focus:border-indigo-400 focus:outline-none pb-0.5 placeholder:text-zinc-300"
+                           placeholder="e.g. Inter (headings), Lora (body)">
+                    {% if form.fonts.errors %}<span class="text-xs text-error">{{ form.fonts.errors.0 }}</span>{% endif %}
+                    {% else %}
+                    <p class="text-sm text-zinc-700">{{ brand.fonts|default:"—" }}</p>
+                    {% endif %}
+                </div>
+
+                {# Colors #}
+                <div>
+                    <p class="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-2">Colors</p>
+                    <div class="flex items-start gap-6 flex-wrap">
+
+                        {# Primary color #}
+                        {% if edit_mode %}
+                        <div x-data="{ color: '{{ brand.primary_color|default:'#3B82F6'|escapejs }}' }">
+                            <p class="text-xs text-zinc-400 mb-1">Primary</p>
+                            <div class="flex items-center gap-2">
+                                <input type="color" :value="color"
+                                       @input="color = $event.target.value"
+                                       class="size-8 cursor-pointer rounded-lg border border-zinc-200 p-0.5">
+                                <input type="text" name="primary_color" :value="color"
+                                       @input="color = $event.target.value"
+                                       maxlength="7"
+                                       class="w-24 bg-transparent text-sm font-mono text-zinc-700 border-0 border-b border-zinc-200 focus:border-indigo-400 focus:outline-none pb-0.5">
+                            </div>
+                            {% if form.primary_color.errors %}<span class="text-xs text-error">{{ form.primary_color.errors.0 }}</span>{% endif %}
+                        </div>
+                        {% elif brand.primary_color %}
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block size-8 rounded-lg border border-zinc-200 shadow-sm"
+                                  style="background-color: {{ brand.primary_color }};"></span>
+                            <div>
+                                <p class="text-xs text-zinc-400">Primary</p>
+                                <p class="text-sm font-mono text-zinc-700">{{ brand.primary_color }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# Secondary color #}
+                        {% if edit_mode %}
+                        <div x-data="{ color: '{{ brand.secondary_color|default:'#6366F1'|escapejs }}' }">
+                            <p class="text-xs text-zinc-400 mb-1">Secondary</p>
+                            <div class="flex items-center gap-2">
+                                <input type="color" :value="color"
+                                       @input="color = $event.target.value"
+                                       class="size-8 cursor-pointer rounded-lg border border-zinc-200 p-0.5">
+                                <input type="text" name="secondary_color" :value="color"
+                                       @input="color = $event.target.value"
+                                       maxlength="7"
+                                       class="w-24 bg-transparent text-sm font-mono text-zinc-700 border-0 border-b border-zinc-200 focus:border-indigo-400 focus:outline-none pb-0.5">
+                            </div>
+                            {% if form.secondary_color.errors %}<span class="text-xs text-error">{{ form.secondary_color.errors.0 }}</span>{% endif %}
+                        </div>
+                        {% elif brand.secondary_color %}
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block size-8 rounded-lg border border-zinc-200 shadow-sm"
+                                  style="background-color: {{ brand.secondary_color }};"></span>
+                            <div>
+                                <p class="text-xs text-zinc-400">Secondary</p>
+                                <p class="text-sm font-mono text-zinc-700">{{ brand.secondary_color }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+            </div>
         </div>
         {% endif %}
 
     </div>
 </div>
-{% endif %}{# brand.has_data #}
+{% endif %}{# brand.has_data or edit_mode #}
 
-{% endif %}{# edit_mode #}
+{% if edit_mode %}</form>{% endif %}
 
 </div>{# .brand-content #}
 {% endblock %}

@@ -18,6 +18,11 @@ class Brand(models.Model):
     summary = models.TextField(blank=True)
     language = models.CharField(max_length=10, blank=True)
     style_guide = models.TextField(blank=True)
+    tone_of_voice = models.TextField(blank=True)
+    target_audience = models.TextField(blank=True)
+    fonts = models.TextField(blank=True)
+    primary_color = models.CharField(max_length=7, blank=True)
+    secondary_color = models.CharField(max_length=7, blank=True)
     logo = models.ForeignKey(
         'media_library.ImageGroup',
         null=True,
@@ -27,14 +32,6 @@ class Brand(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name or f'Brand for {self.user.email}'
-
-    @property
-    def has_data(self):
-        return bool(self.name or self.summary)
-
 
     def __str__(self):
         return self.name or f'Brand for {self.user.email}'

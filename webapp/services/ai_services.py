@@ -66,11 +66,51 @@ def extract_brand_data(markdown_content):
     raw = _openai_chat(
         messages=[
             {'role': 'system', 'content': BRAND_EXTRACT_PROMPT},
-            {'role': 'user', 'content': markdown_content[:12000]},
+            {'role': 'user', 'content': markdown_content[:20000]},
         ],
         response_format={'type': 'json_object'},
     )
     return json.loads(raw)
+
+
+def select_brand_urls(all_urls, base_url):
+    """
+    Ask the LLM to pick the 5-7 URLs from all_urls most likely to contain brand data.
+    Returns a list of URL strings (subset of all_urls).
+    """
+    import json
+    from services.prompts.brand_extract import BRAND_URL_SELECT_PROMPT
+
+    url_list = '\n'.join(all_urls[:200])  # cap to avoid token overflow
+    user_msg = f'Website: {base_url}\n\nAvailable URLs:\n{url_list}'
+    raw = _openai_chat(
+        messages=[
+            {'role': 'system', 'content': BRAND_URL_SELECT_PROMPT},
+            {'role': 'user', 'content': user_msg},
+        ],
+        response_format={'type': 'json_object'},
+        model=OpenAIModel.QUICK,
+    )
+    # The prompt asks for a JSON array, but json_object mode requires an object.
+    # Handle both {"urls": [...]} and a bare list wrapped in an object.
+    parsed = json.loads(raw)
+    if isinstance(parsed, list):
+        selected = parsed
+    elif isinstance(parsed, dict):
+        # Try common wrapper keys
+        for key in ('urls', 'selected', 'pages', 'links'):
+            if key in parsed and isinstance(parsed[key], list):
+                selected = parsed[key]
+                break
+        else:
+            # Fall back to first list value found
+            selected = next((v for v in parsed.values() if isinstance(v, list)), [])
+    else:
+        selected = []
+
+    # Return only valid strings that were in the original list
+    all_urls_set = set(all_urls)
+    return [u for u in selected if isinstance(u, str) and u in all_urls_set]
 
 
 def suggest_topic(brand, seed_images):

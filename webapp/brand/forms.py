@@ -20,7 +20,7 @@ class BrandForm(forms.ModelForm):
 
     class Meta:
         model = Brand
-        fields = ['name', 'website_url', 'summary', 'language', 'style_guide', 'logo']
+        fields = ['name', 'website_url', 'summary', 'language', 'style_guide', 'tone_of_voice', 'target_audience', 'fonts', 'primary_color', 'secondary_color', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'input input-bordered w-full',
@@ -43,6 +43,30 @@ class BrandForm(forms.ModelForm):
                 'class': 'textarea textarea-bordered w-full',
                 'placeholder': 'Tone of voice, visual style, messaging principles…',
                 'rows': 5,
+            }),
+            'tone_of_voice': forms.Textarea(attrs={
+                'class': 'textarea textarea-bordered w-full',
+                'placeholder': 'Describe how your brand communicates…',
+                'rows': 3,
+            }),
+            'target_audience': forms.Textarea(attrs={
+                'class': 'textarea textarea-bordered w-full',
+                'placeholder': 'Who is your ideal customer?',
+                'rows': 3,
+            }),
+            'fonts': forms.TextInput(attrs={
+                'class': 'input input-bordered w-full',
+                'placeholder': 'e.g. Inter (headings), Lora (body)',
+            }),
+            'primary_color': forms.TextInput(attrs={
+                'class': 'input input-bordered w-full font-mono',
+                'placeholder': '#3B82F6',
+                'maxlength': '7',
+            }),
+            'secondary_color': forms.TextInput(attrs={
+                'class': 'input input-bordered w-full font-mono',
+                'placeholder': '#6366F1',
+                'maxlength': '7',
             }),
         }
 
