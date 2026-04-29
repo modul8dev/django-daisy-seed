@@ -11,9 +11,9 @@ from services.prompts.social_media_topic import SOCIAL_MEDIA_TOPIC_PROMPT
 
 
 class OpenAIModel(Enum):
-    QUICK = 'gpt-4o-mini'
-    NORMAL = 'gpt-4o'
-    FULL = 'o1'
+    QUICK = 'gpt-5-nano'
+    NORMAL = 'gpt-5-mini'
+    FULL = 'gpt-5'
 
 
 def _get_openai_client():
@@ -21,17 +21,13 @@ def _get_openai_client():
     return OpenAI(api_key=os.environ.get('OPENAI_API_KEY', ''))
 
 
-def _openai_chat(messages, model=OpenAIModel.QUICK, temperature=0.7, max_tokens=1000, response_format=None):
+def _openai_chat(messages, model=OpenAIModel.QUICK, **kwargs):
     """Send a chat request to OpenAI and return the response text."""
     client = _get_openai_client()
-    kwargs = dict(
+    kwargs.update(
         model=model.value,
         messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
     )
-    if response_format is not None:
-        kwargs['response_format'] = response_format
     response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content.strip()
 
@@ -72,8 +68,6 @@ def extract_brand_data(markdown_content):
             {'role': 'system', 'content': BRAND_EXTRACT_PROMPT},
             {'role': 'user', 'content': markdown_content[:12000]},
         ],
-        temperature=0.2,
-        max_tokens=1000,
         response_format={'type': 'json_object'},
     )
     return json.loads(raw)
@@ -89,7 +83,6 @@ def suggest_topic(brand, seed_images):
     )
     raw = _openai_chat(
         messages=[{'role': 'user', 'content': prompt}],
-        max_tokens=300,
     )
     topics = []
     for line in raw.splitlines():
@@ -186,8 +179,6 @@ def _generate_image_prompt(brand, topic, post_type, seed_images):
     image_prompt = _openai_chat(
         messages=[{'role': 'user', 'content': pre_prompt}],
         model=OpenAIModel.NORMAL,
-        temperature=1.0,
-        max_tokens=1000,
     )
 
     if (post_type or '').lower() in ('product', 'lifestyle'):
@@ -267,7 +258,6 @@ def edit_text(action, text, brand, platform=None, instruction=None, system_promp
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_prompt},
         ],
-        temperature=0.5,
     )
 
 
