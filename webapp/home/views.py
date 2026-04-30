@@ -1,15 +1,17 @@
 import logging
 import os
-import random
+import uuid
 
 import requests as http_requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django_q.tasks import async_task
 
 from accounts.forms import ProfileForm
 from brand.models import Brand
@@ -75,46 +77,40 @@ def home(request):
 
 @login_required
 def inspiration_cards(request):
-    try:
-        brand = Brand.objects.get(project=request.project)
-        if not brand.has_data:
-            brand = None
-    except Brand.DoesNotExist:
-        brand = None
-
-    product_groups = list(
-        ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT)
-        .prefetch_related('images')
+    cache_key = f'inspiration_{uuid.uuid4().hex}'
+    async_task(
+        'home.tasks.generate_inspiration_task',
+        request.project.id,
+        request.user.id,
+        cache_key,
     )
+    return render(request, 'home/_inspiration_loading.html', {'cache_key': cache_key})
 
-    if not brand or not product_groups:
-        return render(request, "home/_inspiration_cards.html", {'cards': []})
 
-    selected = random.sample(product_groups, min(6, len(product_groups)))
+@login_required
+def inspiration_cards_result(request):
+    cache_key = request.GET.get('key', '')
+    if not cache_key.startswith('inspiration_') or len(cache_key) > 50:
+        return render(request, 'home/_inspiration_cards.html', {'cards': []})
+
+    cached = cache.get(cache_key)
+    if not cached or cached.get('project_id') != request.project.id:
+        return render(request, 'home/_inspiration_cards.html', {'cards': []})
+
+    raw_cards = cached.get('cards', [])
+    image_ids = [c['image_id'] for c in raw_cards if c['image_id']]
+    images_by_id = {img.id: img for img in Image.objects.filter(id__in=image_ids)}
 
     cards = []
-    for group in selected:
-        images = list(group.images.all())
-        seed_images = images[:2]
-        try:
-            from services.ai_services import suggest_topic
-            topics = suggest_topic(brand, seed_images)
-            topic = topics[0] if topics else ''
-        except Exception:
-            logger.exception('Failed to generate inspiration topic')
-            topic = ''
-
-        first_image = images[0] if images else None
-        seed_image_ids = ','.join(str(img.id) for img in seed_images)
-
+    for c in raw_cards:
         cards.append({
-            'group': group,
-            'image': first_image,
-            'topic': topic,
-            'seed_image_ids': seed_image_ids,
+            'group': {'title': c['group_title']},
+            'image': images_by_id.get(c['image_id']),
+            'topic': c['topic'],
+            'seed_image_ids': c['seed_image_ids'],
         })
 
-    return render(request, "home/_inspiration_cards.html", {'cards': cards})
+    return render(request, 'home/_inspiration_cards.html', {'cards': cards})
 
 @login_required
 def settings(request):

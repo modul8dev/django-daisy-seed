@@ -341,6 +341,7 @@
     <script src="{% static 'django_eventstream/reconnecting-eventsource.js' %}"></script>
     {% if user.is_authenticated %}<script>window.__USER_ID__ = {{ user.id }};</script>{% endif %}
     <script src="{% static 'js/publish_events.js' %}"></script>
+    <script src="{% static 'js/inspiration_events.js' %}"></script>
     <script src="{% static 'js/app-header.js' %}"></script>
     <script src="{% static 'js/social_media.js' %}"></script>
     <script src="{% static 'js/image_editor.js' %}"></script>
