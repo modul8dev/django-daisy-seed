@@ -147,20 +147,39 @@ def settings(request):
 def unsplash_photos(request):
     photos = []
     error = None
+    search_term = None
     if UNSPLASH_ACCESS_KEY:
         try:
-            resp = http_requests.get(
-                'https://api.unsplash.com/photos/random',
-                params={'count': 6},
-                headers={'Authorization': f'Client-ID {UNSPLASH_ACCESS_KEY}'},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            photos = resp.json()
+            try:
+                brand = Brand.objects.get(project=request.project)
+                if brand.has_data:
+                    from services.ai_services import get_unsplash_search_term
+                    search_term = get_unsplash_search_term(brand)
+            except Brand.DoesNotExist:
+                pass
+
+            if search_term:
+                resp = http_requests.get(
+                    'https://api.unsplash.com/search/photos',
+                    params={'query': search_term, 'per_page': 6},
+                    headers={'Authorization': f'Client-ID {UNSPLASH_ACCESS_KEY}'},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                photos = resp.json().get('results', [])
+            else:
+                resp = http_requests.get(
+                    'https://api.unsplash.com/photos/random',
+                    params={'count': 6},
+                    headers={'Authorization': f'Client-ID {UNSPLASH_ACCESS_KEY}'},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                photos = resp.json()
         except Exception:
             logger.exception('Failed to fetch Unsplash photos')
             error = 'Could not load photos from Unsplash.'
-    return render(request, 'home/_unsplash_inspiration.html', {'photos': photos, 'error': error})
+    return render(request, 'home/_unsplash_inspiration.html', {'photos': photos, 'error': error, 'search_term': search_term})
 
 
 @login_required

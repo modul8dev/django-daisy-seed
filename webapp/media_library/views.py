@@ -182,7 +182,7 @@ def _import_shopify_products(user, base_url, project=None):
             type=MediaGroup.GroupType.PRODUCT,
         )
 
-        for img_data in product.get('media', []):
+        for img_data in product.get('images', []):
             img_src = img_data.get('src', '')
             if not img_src:
                 continue
@@ -260,7 +260,7 @@ def _import_woocommerce_products(user, base_url, project=None):
             type=MediaGroup.GroupType.PRODUCT,
         )
 
-        for img_data in product.get('media', []):
+        for img_data in product.get('images', []):
             img_src = img_data.get('src', '')
             if img_src:
                 Media.objects.create(media_group=group, external_url=img_src, source_type=Media.SourceType.IMPORTED)

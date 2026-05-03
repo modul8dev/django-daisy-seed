@@ -137,6 +137,24 @@ def select_brand_urls(all_urls, base_url):
     return [u for u in result.urls if isinstance(u, str) and u in all_urls_set]
 
 
+def get_unsplash_search_term(brand):
+    """Use brand data to generate a short, relevant Unsplash search term (2-3 words)."""
+    ctx = _get_brand_context(brand)
+    prompt = (
+        "You are helping find stock photography for a brand. "
+        "Based on the brand information below, return a single short search term (2-3 words) "
+        "that describes the type of imagery that would resonate with this brand's audience. "
+        "Return ONLY the search term, nothing else.\n\n"
+        f"Brand name: {ctx['brand_name']}\n"
+        f"Brand summary: {ctx['brand_summary']}\n"
+    )
+    if brand.target_audience:
+        prompt += f"Target audience: {brand.target_audience}\n"
+    return _openai_chat(
+        messages=[{'role': 'user', 'content': prompt}],
+    )
+
+
 def suggest_topic(brand, seed_media):
     """Suggest topics based on brand context and seed media. Returns a list."""
     import re
