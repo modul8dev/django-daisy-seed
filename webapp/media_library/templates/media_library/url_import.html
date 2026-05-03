@@ -12,10 +12,12 @@
     <form method="post"
           up-submit
           up-layer="current"
-          id="url-import-form">
+          id="url-import-form"
+          x-data="{ submitting: false }"
+          @submit="if ($el.checkValidity()) submitting = true">
         {% csrf_token %}
 
-        <div id="url-field" class="form-control w-full mb-6">
+        <div class="form-control w-full mb-6" x-show="!submitting">
             <label class="label" for="page_url">
                 <span class="label-text font-medium">Page URL</span>
             </label>
@@ -31,15 +33,15 @@
             </label>
         </div>
 
-        <div id="import-spinner" style="display:none" class="flex-col items-center justify-center py-8">
+        <div class="flex flex-col items-center justify-center py-8" x-show="submitting" x-cloak>
             <span class="loading loading-spinner loading-lg text-indigo-600"></span>
             <p class="mt-4 text-sm text-zinc-500">Scraping page for media…</p>
             <p class="mt-1 text-xs text-zinc-400">This may take a moment.</p>
         </div>
 
-        <div id="form-actions" class="flex justify-end gap-2">
+        <div class="flex justify-end gap-2" x-show="!submitting">
             <button type="button" class="btn btn-ghost" up-dismiss>Cancel</button>
-            <button type="submit" class="btn btn-primary" onclick="document.getElementById('import-spinner').style.display='flex';document.getElementById('form-actions').style.display='none'">Import</button>
+            <button type="submit" class="btn btn-primary">Import</button>
         </div>
     </form>
 </div>

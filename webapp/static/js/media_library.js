@@ -1,40 +1,5 @@
 /* ── Compiled by Unpoly so it runs every time the fragment is inserted ── */
 
-/* ── Add a URL media row to the formset (called from up-on-accepted) ── */
-function mlAddUrlMediaRow(url) {
-  var container = document.querySelector('#formset-container');
-  var emptyTemplate = document.querySelector('#empty-url-form');
-  if (!container || !emptyTemplate) return;
-
-  var form = container.closest('form');
-  var totalInput = form.querySelector('[name$="-TOTAL_FORMS"]');
-  var idx = parseInt(totalInput.value, 10);
-
-  var clone = emptyTemplate.content.cloneNode(true);
-  clone.querySelectorAll('[name], [id], [for]').forEach(function (el) {
-    ['name', 'id', 'for'].forEach(function (attr) {
-      var val = el.getAttribute(attr);
-      if (val) el.setAttribute(attr, val.replace(/__prefix__/g, idx));
-    });
-  });
-
-  var urlInput = clone.querySelector('[name$="-external_url"]');
-  if (urlInput) urlInput.value = url;
-
-  container.appendChild(clone);
-
-  var addedRow = container.lastElementChild;
-  var mediaContainer = addedRow.querySelector('.media-preview');
-  if (mediaContainer) {
-    var previewEl = document.createElement('preview-media');
-    previewEl.setAttribute('src', url);
-    previewEl.setAttribute('alt', url);
-    previewEl.setAttribute('class', 'w-full h-full object-cover');
-    mediaContainer.appendChild(previewEl);
-  }
-  totalInput.value = idx + 1;
-}
-
 /* ── Product Import Modal — Alpine.js component for the import overlay ──
  *
  * When importing=true, listens for media_library:import_completed (accepts
