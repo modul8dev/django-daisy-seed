@@ -556,7 +556,7 @@ def media_editor_modal(request):
             quick_access_media = [{'id': m.id, 'url': m.url} for m in group.media_items.all()]
         except (MediaGroup.DoesNotExist, ValueError):
             pass
-    return render(request, 'media_library/media_editor_modal.html', {
+    return render(request, 'media_library/image_editor_modal.html', {
         'source_media_json': json.dumps(source_media) if source_media else 'null',
         'quick_access_media_json': json.dumps(quick_access_media),
         'group_id': group_id or '',
