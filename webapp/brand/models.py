@@ -24,7 +24,7 @@ class Brand(models.Model):
     primary_color = models.CharField(max_length=7, blank=True)
     secondary_color = models.CharField(max_length=7, blank=True)
     logo = models.ForeignKey(
-        'media_library.ImageGroup',
+        'media_library.MediaGroup',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,

@@ -19,13 +19,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import ImageFormSet, ImageGroupForm
+from .forms import MediaFormSet, MediaGroupForm
 from .image_heuristics import (
-    _normalize_image_identity,
+    _normalize_media_identity,
     _page_context_from_crawl_doc,
-    _select_distinct_product_image_urls,
+    _select_distinct_product_media_urls,
 )
-from .models import Image, ImageGroup
+from .models import Media, MediaGroup
 
 
 def _accept_layer_response():
@@ -37,30 +37,30 @@ def _accept_layer_response():
 
 @login_required
 def catalog(request):
-    groups = ImageGroup.objects.filter(project=request.project).prefetch_related('images')
-    group_types = ImageGroup.GroupType.choices
+    groups = MediaGroup.objects.filter(project=request.project).prefetch_related('media_items')
+    group_types = MediaGroup.GroupType.choices
     return render(request, 'media_library/catalog.html', {'groups': groups, 'group_types': group_types})
 
 
 
 @login_required
-def image_group_create(request):
+def media_group_create(request):
     if request.method == 'POST':
-        form = ImageGroupForm(request.POST)
-        formset = ImageFormSet(request.POST, request.FILES)
+        form = MediaGroupForm(request.POST)
+        formset = MediaFormSet(request.POST, request.FILES)
         if form.is_valid() and formset.is_valid():
             group = form.save(commit=False)
             group.user = request.user
             group.project = request.project
-            group.type = request.GET.get('type', ImageGroup.GroupType.MANUAL)
+            group.type = request.GET.get('type', MediaGroup.GroupType.MANUAL)
             group.save()
             formset.instance = group
             formset.save()
             return _accept_layer_response()
     else:
-        form = ImageGroupForm()
-        formset = ImageFormSet()
-    return render(request, 'media_library/image_group_form.html', {
+        form = MediaGroupForm()
+        formset = MediaFormSet()
+    return render(request, 'media_library/media_group_form.html', {
         'form': form,
         'formset': formset,
         'is_edit': False,
@@ -68,19 +68,19 @@ def image_group_create(request):
 
 
 @login_required
-def image_group_edit(request, pk):
-    group = get_object_or_404(ImageGroup, pk=pk, project=request.project)
+def media_group_edit(request, pk):
+    group = get_object_or_404(MediaGroup, pk=pk, project=request.project)
     if request.method == 'POST':
-        form = ImageGroupForm(request.POST, instance=group)
-        formset = ImageFormSet(request.POST, request.FILES, instance=group)
+        form = MediaGroupForm(request.POST, instance=group)
+        formset = MediaFormSet(request.POST, request.FILES, instance=group)
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
             return _accept_layer_response()
     else:
-        form = ImageGroupForm(instance=group)
-        formset = ImageFormSet(instance=group)
-    return render(request, 'media_library/image_group_form.html', {
+        form = MediaGroupForm(instance=group)
+        formset = MediaFormSet(instance=group)
+    return render(request, 'media_library/media_group_form.html', {
         'form': form,
         'formset': formset,
         'group': group,
@@ -90,21 +90,21 @@ def image_group_edit(request, pk):
 
 @login_required
 @require_POST
-def image_group_delete(request, pk):
-    group = get_object_or_404(ImageGroup, pk=pk, project=request.project)
+def media_group_delete(request, pk):
+    group = get_object_or_404(MediaGroup, pk=pk, project=request.project)
     group.delete()
     next_url = request.POST.get('next', '')
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
         redirect_to = next_url
     else:
-        redirect_to = reverse('media_library:image_group_list')
+        redirect_to = reverse('media_library:media_group_list')
     response = redirect(redirect_to)
     response['X-Up-Events'] = '[{"type":"media_library:changed"}]'
     return response
 
 
 @login_required
-def add_url_image(request):
+def add_url_media(request):
     error = None
     url = ''
     if request.method == 'POST':
@@ -116,8 +116,8 @@ def add_url_image(request):
             response['X-Up-Accept-Layer'] = json.dumps({'url': url})
             return response
         except ValidationError:
-            error = 'Please enter a valid image URL.'
-    return render(request, 'media_library/url_image_modal.html', {'error': error, 'url': url})
+            error = 'Please enter a valid media URL.'
+    return render(request, 'media_library/url_media_modal.html', {'error': error, 'url': url})
 
 
 def _is_shopify(base_url):
@@ -153,7 +153,7 @@ def _is_woocommerce(base_url):
 
 def _import_shopify_products(user, base_url, project=None):
     """
-    Import products and images from a Shopify store.
+    Import products and media from a Shopify store.
     Returns a tuple (success: bool, error: str or None).
     """
     parsed = urlparse(base_url)
@@ -178,34 +178,34 @@ def _import_shopify_products(user, base_url, project=None):
     if not all_products:
         return False, 'No products found in this store.'
 
-    # Create an ImageGroup per product with its images
+    # Create a MediaGroup per product with its media items
     for product in all_products:
         title = product.get('title', 'Untitled Product')
         body_html = product.get('body_html') or ''
         description = strip_tags(body_html).strip()[:500]
 
         product_url = f'https://{shop_domain}/products/{product.get("handle", "")}' if product.get('handle') else base_url
-        group = ImageGroup.objects.create(
+        group = MediaGroup.objects.create(
             user=user,
             project=project,
             title=title,
             description=description,
             source_url=product_url,
-            type=ImageGroup.GroupType.PRODUCT,
+            type=MediaGroup.GroupType.PRODUCT,
         )
 
-        for img_data in product.get('images', []):
+        for img_data in product.get('media', []):
             img_src = img_data.get('src', '')
             if not img_src:
                 continue
-            Image.objects.create(image_group=group, external_url=img_src)
+            Media.objects.create(media_group=group, external_url=img_src)
 
     return True, None
 
 
 def _import_woocommerce_products(user, base_url, project=None):
     """
-    Import products and images from a WooCommerce store via the Store API.
+    Import products and media from a WooCommerce store via the Store API.
     Returns a tuple (success: bool, error: str or None).
     """
     api_url = f'{base_url}/wp-json/wc/store/v1/products'
@@ -263,19 +263,19 @@ def _import_woocommerce_products(user, base_url, project=None):
         description = strip_tags(description_html).strip()[:500]
 
         product_link = product.get('permalink') or base_url
-        group = ImageGroup.objects.create(
+        group = MediaGroup.objects.create(
             user=user,
             project=project,
             title=name,
             description=description,
             source_url=product_link,
-            type=ImageGroup.GroupType.PRODUCT,
+            type=MediaGroup.GroupType.PRODUCT,
         )
 
-        for img_data in product.get('images', []):
+        for img_data in product.get('media', []):
             img_src = img_data.get('src', '')
             if img_src:
-                Image.objects.create(image_group=group, external_url=img_src)
+                Media.objects.create(media_group=group, external_url=img_src)
 
     return True, None
 
@@ -283,7 +283,7 @@ def _import_woocommerce_products(user, base_url, project=None):
 def _import_domain_with_crawl(user, base_url, project=None):
     """
     Crawl a domain with Firecrawl (up to 100 pages, skipping /blog) and create
-    an ImageGroup per page from the images and description found on each page.
+    a MediaGroup per page from the media items and description found on each page.
     Returns (success: bool, error: str | None).
     """
     api_key = os.environ.get('FIRECRAWL_API_KEY', '')
@@ -300,7 +300,7 @@ def _import_domain_with_crawl(user, base_url, project=None):
             exclude_paths=['/blog.*'],
             crawl_entire_domain=True,
             scrape_options={
-                'formats': ['images'],
+                'formats': ['media'],
                 'only_main_content': True,
             },
         )
@@ -318,39 +318,39 @@ def _import_domain_with_crawl(user, base_url, project=None):
         page_contexts.append(context)
 
         identities = {
-            _normalize_image_identity(urljoin(context['page_url'], image_url))
-            for image_url in context['image_urls']
-            if image_url and not image_url.startswith('data:')
+            _normalize_media_identity(urljoin(context['page_url'], media_url))
+            for media_url in context['media_urls']
+            if media_url and not media_url.startswith('data:')
         }
         asset_page_counts.update(identity for identity in identities if identity)
 
     created = 0
     for context in page_contexts:
-        image_urls = _select_distinct_product_image_urls(
-            context['image_urls'],
+        media_urls = _select_distinct_product_media_urls(
+            context['media_urls'],
             page_url=context['page_url'],
             page_title=context['title'],
             page_description=context['description'],
             asset_page_counts=asset_page_counts,
             total_pages=len(page_contexts),
         )
-        if not image_urls:
+        if not media_urls:
             continue
 
-        group = ImageGroup.objects.create(
+        group = MediaGroup.objects.create(
             user=user,
             project=project,
             title=context['title'],
             description=context['description'],
             source_url=context['page_url'],
-            type=ImageGroup.GroupType.PRODUCT,
+            type=MediaGroup.GroupType.PRODUCT,
         )
-        for img_url in image_urls:
-            Image.objects.create(image_group=group, external_url=img_url)
+        for img_url in media_urls:
+            Media.objects.create(media_group=group, external_url=img_url)
         created += 1
 
     if created == 0:
-        return False, 'No images found on any crawled page.'
+        return False, 'No media found on any crawled page.'
 
     return True, None
 
@@ -431,9 +431,9 @@ class _ImgSrcParser(HTMLParser):
                 self.srcs.append(src)
 
 
-def _import_url_images(user, page_url, project=None):
+def _import_url_media(user, page_url, project=None):
     """
-    Scrape a URL with Firecrawl and create a manual ImageGroup with all found images.
+    Scrape a URL with Firecrawl and create a manual MediaGroup with all found media items.
     Returns (success: bool, error: str | None).
     """
     api_key = os.environ.get('FIRECRAWL_API_KEY', '')
@@ -455,15 +455,15 @@ def _import_url_images(user, page_url, project=None):
     raw_srcs = parser.srcs
 
     # Resolve relative URLs against the page URL
-    image_urls = []
+    media_urls = []
     for src in raw_srcs:
         if src.startswith('data:'):
             continue
         absolute = urljoin(page_url, src)
-        image_urls.append(absolute)
+        media_urls.append(absolute)
 
-    if not image_urls:
-        return False, 'No images found on the page.'
+    if not media_urls:
+        return False, 'No media found on the page.'
 
     # Derive a title from the scraped page metadata or the domain
     title = getattr(result, 'metadata', None)
@@ -476,15 +476,15 @@ def _import_url_images(user, page_url, project=None):
     if not title:
         title = urlparse(page_url).hostname or page_url
 
-    group = ImageGroup.objects.create(
+    group = MediaGroup.objects.create(
         user=user,
         project=project,
         title=title,
         source_url=page_url,
-        type=ImageGroup.GroupType.PRODUCT,
+        type=MediaGroup.GroupType.PRODUCT,
     )
-    for url in image_urls:
-        Image.objects.create(image_group=group, external_url=url)
+    for url in media_urls:
+        Media.objects.create(media_group=group, external_url=url)
 
     return True, None
 
@@ -502,7 +502,7 @@ def url_import(request):
                 'page_url': page_url,
             })
 
-        success, error = _import_url_images(request.user, page_url, project=request.project)
+        success, error = _import_url_media(request.user, page_url, project=request.project)
         if success:
             return _accept_layer_response()
 
@@ -515,70 +515,76 @@ def url_import(request):
 
 
 @login_required
-def image_picker(request):
-    groups = ImageGroup.objects.filter(project=request.project).prefetch_related('images')
+def media_picker(request):
+    groups = MediaGroup.objects.filter(project=request.project).prefetch_related('media_items')
     selected_raw = request.GET.get('selected', '')
     selected_ids = {int(s) for s in selected_raw.split(',') if s.strip().isdigit()}
     target = request.GET.get('target', 'shared')
-    max_images_raw = request.GET.get('max', '')
-    max_images = int(max_images_raw) if max_images_raw.isdigit() else 0
+    max_media_raw = request.GET.get('max', '')
+    max_media = int(max_media_raw) if max_media_raw.isdigit() else 0
+    allow_video = request.GET.get('allow_video', '1') != '0'
     groups_data = [
         {
             'id': g.id,
             'title': g.title,
             'description': g.description,
             'type': g.type,
-            'images': [{'id': img.id, 'url': img.url} for img in g.images.all()],
+            'media': [
+                {'id': m.id, 'url': m.url, 'is_video': m.is_video}
+                for m in g.media_items.all()
+                if allow_video or not m.is_video
+            ],
         }
         for g in groups
     ]
     if request.GET.get('format') == 'json':
         from django.http import JsonResponse
         return JsonResponse({'groups': groups_data})
-    return render(request, 'media_library/image_picker.html', {
+    return render(request, 'media_library/media_picker.html', {
         'groups_data': groups_data,
         'selected_ids': list(selected_ids),
         'target': target,
-        'max_images': max_images,
-        'create_url': reverse('media_library:image_group_create'),
-        'edit_url_base': reverse('media_library:image_group_edit', kwargs={'pk': 0}),
-        'picker_url': reverse('media_library:image_picker'),
+        'max_media': max_media,
+        'allow_video': allow_video,
+        'create_url': reverse('media_library:media_group_create'),
+        'edit_url_base': reverse('media_library:media_group_edit', kwargs={'pk': 0}),
+        'picker_url': reverse('media_library:media_picker'),
     })
 
 
 @login_required
-def image_editor_modal(request):
-    source_image = None
-    quick_access_images = []
-    image_id = request.GET.get('image_id')
+def media_editor_modal(request):
+    source_media = None
+    quick_access_media = []
+    media = request.GET.get('media')
     group_id = request.GET.get('group_id')
-    if image_id:
+    if media:
         try:
-            img = Image.objects.select_related('image_group').get(
-                pk=int(image_id),
-                image_group__project=request.project,
+            img = Media.objects.select_related('media_group').get(
+                pk=int(media),
+                media_group__project=request.project,
             )
-            source_image = {'id': img.id, 'url': img.url}
-        except (Image.DoesNotExist, ValueError):
+            source_media = {'id': img.id, 'url': img.url}
+        except (Media.DoesNotExist, ValueError):
             pass
     elif group_id:
         try:
-            group = ImageGroup.objects.get(pk=int(group_id), project=request.project)
-            quick_access_images = [{'id': img.id, 'url': img.url} for img in group.images.all()]
-        except (ImageGroup.DoesNotExist, ValueError):
+            group = MediaGroup.objects.get(pk=int(group_id), project=request.project)
+            quick_access_media = [{'id': m.id, 'url': m.url} for m in group.media_items.all()]
+        except (MediaGroup.DoesNotExist, ValueError):
             pass
-    return render(request, 'media_library/image_editor_modal.html', {
-        'source_image_json': json.dumps(source_image) if source_image else 'null',
-        'quick_access_images_json': json.dumps(quick_access_images),
+    return render(request, 'media_library/media_editor_modal.html', {
+        'source_media_json': json.dumps(source_media) if source_media else 'null',
+        'quick_access_media_json': json.dumps(quick_access_media),
         'group_id': group_id or '',
-        'picker_url': reverse('media_library:image_picker'),
-        'generate_url': reverse('media_library:image_editor_generate'),
+        'picker_url': reverse('media_library:media_picker'),
+        'generate_url': reverse('media_library:media_editor_generate'),
     })
 
 
 @login_required
 @require_POST
-def image_editor_generate(request):
+def media_editor_generate(request):
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -598,36 +604,36 @@ def image_editor_generate(request):
     attachment_ids = body.get('attachment_ids', [])
     group_id = body.get('group_id')
 
-    # Validate and load attached images
-    input_images = []
+    # Validate and load attached media
+    input_media = []
     if attachment_ids:
-        input_images = list(
-            Image.objects.filter(pk__in=attachment_ids, image_group__project=request.project)
+        input_media = list(
+            Media.objects.filter(pk__in=attachment_ids, media_group__project=request.project)
         )
 
     # Resolve or lazily create output group
     output_group = None
     if group_id:
         try:
-            output_group = ImageGroup.objects.get(pk=int(group_id), project=request.project)
-        except (ImageGroup.DoesNotExist, ValueError):
+            output_group = MediaGroup.objects.get(pk=int(group_id), project=request.project)
+        except (MediaGroup.DoesNotExist, ValueError):
             pass
     if output_group is None:
-        output_group = ImageGroup.objects.create(
+        output_group = MediaGroup.objects.create(
             user=request.user,
             project=request.project,
-            title='AI Generated Images',
-            type=ImageGroup.GroupType.GENERATED,
+            title='AI Generated Media',
+            type=MediaGroup.GroupType.GENERATED,
         )
 
     # Get brand for context injection
     brand = getattr(request.project, 'brand', None)
 
-    from services.ai_services import generate_editor_image
+    from services.ai_services import generate_editor_media
     try:
-        image_obj = generate_editor_image(
+        media_obj = generate_editor_media(
             prompt=prompt,
-            input_images=input_images,
+            input_media=input_media,
             brand=brand,
             user=request.user,
             output_group=output_group,
@@ -635,12 +641,12 @@ def image_editor_generate(request):
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 
-    if image_obj is None:
-        return JsonResponse({'error': 'Image generation failed — no image returned.'}, status=500)
+    if media_obj is None:
+        return JsonResponse({'error': 'Image generation failed — no media returned.'}, status=500)
 
     spend_credits(request.user, IMAGE_GENERATION_COST, 'Image editor generation')
 
     return JsonResponse({
-        'image': {'id': image_obj.id, 'url': image_obj.url},
+        'media': {'id': media_obj.id, 'url': media_obj.url},
         'group_id': output_group.id,
     })

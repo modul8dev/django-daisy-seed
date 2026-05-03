@@ -69,12 +69,19 @@
                     </div>
                 </div>
 
-                <!-- Image area — full-bleed, dominant -->
+                <!-- Media area — full-bleed, dominant -->
                 {% if post.preview_media %}
                 <div class="mt-2 pointer-events-none">
-                    <!-- Main image -->
+                    <!-- Main media item -->
                     <div class="relative w-full bg-zinc-100 overflow-hidden" style="aspect-ratio: 4/3;">
-                        <img src="{{ post.preview_media.0.image.url }}" alt="" class="w-full h-full object-cover">
+                        {% if post.preview_media.0.media.is_video %}
+                        <video src="{{ post.preview_media.0.media.url }}" class="w-full h-full object-cover" muted preload="metadata"></video>
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-10 text-white drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                        {% else %}
+                        <img src="{{ post.preview_media.0.media.url }}" alt="" class="w-full h-full object-cover">
+                        {% endif %}
                         {% if post.preview_media|length == 1 and post.extra_media_count > 0 %}
                         <div class="absolute bottom-2 right-2 bg-zinc-900/65 rounded-full px-2.5 py-0.5">
                             <span class="text-white text-xs font-semibold">+{{ post.extra_media_count }}</span>
@@ -86,7 +93,14 @@
                     <div class="flex gap-px mt-px">
                         {% for media in post.preview_media %}{% if not forloop.first %}
                         <div class="relative flex-1 bg-zinc-100 overflow-hidden" style="height: 80px;">
-                            <img src="{{ media.image.url }}" alt="" class="w-full h-full object-cover">
+                            {% if media.media.is_video %}
+                            <video src="{{ media.media.url }}" class="w-full h-full object-cover" muted preload="metadata"></video>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-5 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                            {% else %}
+                            <img src="{{ media.media.url }}" alt="" class="w-full h-full object-cover">
+                            {% endif %}
                             {% if forloop.last and post.extra_media_count > 0 %}
                             <div class="absolute inset-0 bg-zinc-900/55 flex items-center justify-center">
                                 <span class="text-white text-sm font-semibold">+{{ post.extra_media_count }}</span>

@@ -58,14 +58,14 @@ def scheduler_events(request):
     if status_filter:
         qs = qs.filter(status=status_filter)
 
-    qs = qs.distinct().prefetch_related('shared_media__image', 'platforms')
+    qs = qs.distinct().prefetch_related('shared_media__media', 'platforms')
 
     events = []
     for post in qs:
         first_media = post.shared_media.first()
         thumbnail = None
         if first_media:
-            thumbnail = first_media.image.url
+            thumbnail = first_media.media.url
 
         enabled_platforms = [
             p.platform

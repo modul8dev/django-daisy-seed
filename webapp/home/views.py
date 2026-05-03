@@ -17,7 +17,7 @@ from accounts.forms import ProfileForm
 from brand.models import Brand
 from credits.models import CreditGrant, available_credits
 from credits.views import get_subscription_info
-from media_library.models import Image, ImageGroup
+from media_library.models import Media, MediaGroup
 from social_media.models import SocialMediaPost
 
 UNSPLASH_ACCESS_KEY = os.environ.get('UNSPLASH_ACCESS_KEY', '')
@@ -35,7 +35,7 @@ def home(request):
 
     drafts = (
         SocialMediaPost.objects.filter(project=request.project, status='draft')
-        .prefetch_related('shared_media__image')
+        .prefetch_related('shared_media__media')
         .order_by('-updated_at')[:4]
     )
 
@@ -57,11 +57,11 @@ def home(request):
         brand = None
         has_brand = False
 
-    has_products = ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.PRODUCT).exists()
+    has_products = MediaGroup.objects.filter(project=request.project, type=MediaGroup.GroupType.PRODUCT).exists()
 
-    image_groups = (
-        ImageGroup.objects.filter(project=request.project, type=ImageGroup.GroupType.MANUAL)
-        .prefetch_related('images')
+    media_groups = (
+        MediaGroup.objects.filter(project=request.project, type=MediaGroup.GroupType.MANUAL)
+        .prefetch_related('media_items')
         .order_by('-created_at')[:6]
     )
 
@@ -76,7 +76,7 @@ def home(request):
         'has_products': has_products,
         'is_scraping': is_scraping,
         'is_importing': is_importing,
-        'image_groups': image_groups,
+        'media_groups': media_groups,
     })
 
 
@@ -103,16 +103,16 @@ def inspiration_cards_result(request):
         return render(request, 'home/_inspiration_cards.html', {'cards': []})
 
     raw_cards = cached.get('cards', [])
-    image_ids = [c['image_id'] for c in raw_cards if c['image_id']]
-    images_by_id = {img.id: img for img in Image.objects.filter(id__in=image_ids)}
+    media_ids = [c['media'] for c in raw_cards if c['media']]
+    media_by_id = {m.id: m for m in Media.objects.filter(id__in=media_ids)}
 
     cards = []
     for c in raw_cards:
         cards.append({
             'group': {'title': c['group_title']},
-            'image': images_by_id.get(c['image_id']),
+            'media': media_by_id.get(c['media']),
             'topic': c['topic'],
-            'seed_image_ids': c['seed_image_ids'],
+            'seed_media_ids': c['seed_media_ids'],
         })
 
     return render(request, 'home/_inspiration_cards.html', {'cards': cards})
@@ -165,19 +165,19 @@ def unsplash_photos(request):
 
 @login_required
 @require_POST
-def save_unsplash_image(request):
+def save_unsplash_media(request):
     photo_url = request.POST.get('photo_url', '').strip()
     photo_id = request.POST.get('photo_id', '').strip()
     title = request.POST.get('title', '').strip() or 'Unsplash Photo'
 
     if photo_url and photo_id:
-        group = ImageGroup.objects.create(
+        group = MediaGroup.objects.create(
             user=request.user,
             project=request.project,
             title=title,
-            type=ImageGroup.GroupType.MANUAL,
+            type=MediaGroup.GroupType.MANUAL,
         )
-        Image.objects.create(image_group=group, external_url=photo_url)
+        Media.objects.create(media_group=group, external_url=photo_url)
 
     return render(request, 'home/_unsplash_save_button.html', {
         'saved': True,

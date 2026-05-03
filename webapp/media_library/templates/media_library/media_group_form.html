@@ -86,23 +86,13 @@
             <div id="formset-container" class="flex flex-wrap gap-4 mb-4">
                 {% for media_form in formset %}
                 <div class="media-row relative w-32 h-32 sm:w-36 sm:h-36 flex-shrink-0" data-index="{{ forloop.counter0 }}">
-                    <div class="w-full h-full rounded-lg overflow-hidden bg-base-300 flex items-center justify-center">
+                    <div class="media-preview w-full h-full rounded-lg overflow-hidden bg-base-300 flex items-center justify-center">
                         {% if media_form.instance.pk and media_form.instance.url %}
-                        {% if media_form.instance.is_video %}
-                        <preview-media src="{{ media_form.instance.url }}"
-                             class="preview-video w-full h-full object-cover"
-                             muted preload="metadata">
-                        </preview-media>
-                        {% else %}
                         <preview-media src="{{ media_form.instance.url }}"
                              alt="Preview"
-                             class="preview-media w-full h-full object-cover"
+                             class="w-full h-full object-cover"
                              loading="lazy">
                         </preview-media>
-                        {% endif %}
-                        {% else %}
-                        <img src="" alt="" class="preview-media w-full h-full object-cover hidden">
-                        <span class="no-preview text-base-content/30 text-xs">No media</span>
                         {% endif %}
                     </div>
                     {# Hidden fields (id, etc.) #}
@@ -150,14 +140,12 @@
                     + Add URL Media
                 </a>
             </div>
-            <p class="text-xs text-base-content/40">You can also paste media from your clipboard (Ctrl+V / ⌘V). Videos: max 512 MB.</p>
+            <p class="text-xs text-base-content/40">You can also paste media from your clipboard (Ctrl+V / ⌘V).</p>
 
             {# ── Empty form template for JS cloning ── #}
             <template id="empty-form">
                 <div class="media-row relative w-32 h-32 sm:w-36 sm:h-36 flex-shrink-0">
-                    <div class="w-full h-full rounded-lg overflow-hidden bg-base-300 flex items-center justify-center">
-                        <img src="" alt="" class="preview-media w-full h-full object-cover hidden">
-                        <span class="no-preview text-base-content/30 text-xs">No media</span>
+                    <div class="media-preview w-full h-full rounded-lg overflow-hidden bg-base-300 flex items-center justify-center">
                     </div>
                     <div class="hidden">{{ formset.empty_form.file }}</div>
                     <button type="button"
@@ -171,9 +159,7 @@
             {# ── Empty URL form template for JS cloning ── #}
             <template id="empty-url-form">
                 <div class="media-row relative w-32 h-32 sm:w-36 sm:h-36 flex-shrink-0">
-                    <div class="w-full h-full rounded-lg overflow-hidden bg-base-300 flex items-center justify-center">
-                        <img src="" alt="" class="preview-media w-full h-full object-cover hidden">
-                        <span class="no-preview text-base-content/30 text-xs">No media</span>
+                    <div class="media-preview w-full h-full rounded-lg overflow-hidden bg-base-300 flex items-center justify-center">
                     </div>
                     <div class="hidden">{{ formset.empty_form.external_url }}</div>
                     <button type="button"

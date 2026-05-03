@@ -8,7 +8,7 @@ Post topic: {topic}
 Post type: {post_type}
 Target platforms: {platforms}
 
-{image_descriptions}
+{media_descriptions}
 
 Write a single social media post that fits the brand voice and is appropriate for the given platforms.
 Keep it concise and engaging. Do not include hashtags unless they are natural for the platform.

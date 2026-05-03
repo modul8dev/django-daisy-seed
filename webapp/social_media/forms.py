@@ -69,9 +69,9 @@ PlatformFormSet = inlineformset_factory(
 class SharedMediaForm(forms.ModelForm):
     class Meta:
         model = SocialMediaPostMedia
-        fields = ['image', 'sort_order']
+        fields = ['media', 'sort_order']
         widgets = {
-            'image': forms.Select(attrs={'class': 'select select-bordered w-full'}),
+            'media': forms.Select(attrs={'class': 'select select-bordered w-full'}),
             'sort_order': forms.HiddenInput(),
         }
 

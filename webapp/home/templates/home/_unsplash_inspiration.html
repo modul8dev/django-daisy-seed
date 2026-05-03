@@ -47,7 +47,7 @@
 
             {# Save button — Unpoly replaces just the button wrapper #}
             <div id="unsplash-btn-{{ photo.id }}">
-                <form method="post" action="{% url 'save_unsplash_image' %}"
+                <form method="post" action="{% url 'save_unsplash_media' %}"
                       up-submit
                       up-target="#unsplash-btn-{{ photo.id }}"
                       up-scroll="false">

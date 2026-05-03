@@ -1,7 +1,7 @@
 /* ── Compiled by Unpoly so it runs every time the fragment is inserted ── */
 
-/* ── Add a URL image row to the formset (called from up-on-accepted) ── */
-function mlAddUrlImageRow(url) {
+/* ── Add a URL media row to the formset (called from up-on-accepted) ── */
+function mlAddUrlMediaRow(url) {
   var container = document.querySelector('#formset-container');
   var emptyTemplate = document.querySelector('#empty-url-form');
   if (!container || !emptyTemplate) return;
@@ -21,12 +21,17 @@ function mlAddUrlImageRow(url) {
   var urlInput = clone.querySelector('[name$="-external_url"]');
   if (urlInput) urlInput.value = url;
 
-  var img = clone.querySelector('.preview-img');
-  var noPreview = clone.querySelector('.no-preview');
-  if (img) { img.src = url; img.classList.remove('hidden'); }
-  if (noPreview) noPreview.classList.add('hidden');
-
   container.appendChild(clone);
+
+  var addedRow = container.lastElementChild;
+  var mediaContainer = addedRow.querySelector('.media-preview');
+  if (mediaContainer) {
+    var previewEl = document.createElement('preview-media');
+    previewEl.setAttribute('src', url);
+    previewEl.setAttribute('alt', url);
+    previewEl.setAttribute('class', 'w-full h-full object-cover');
+    mediaContainer.appendChild(previewEl);
+  }
   totalInput.value = idx + 1;
 }
 
@@ -81,7 +86,7 @@ up.compiler('#formset-container', function (container) {
   'use strict';
 
   var form = container.closest('form');
-  var addBtn = form.querySelector('#add-image');
+  var addBtn = form.querySelector('#add-media');
   var emptyTemplate = form.querySelector('#empty-form');
 
   function getTotalFormsInput() {
@@ -96,24 +101,32 @@ up.compiler('#formset-container', function (container) {
     getTotalFormsInput().value = val;
   }
 
-  /* ── Preview an image from a file input ── */
-  function previewImage(input) {
-    var row = input.closest('.image-row');
+  /* ── Preview a media file from a file input ── */
+  function previewMedia(input) {
+    var row = input.closest('.media-row');
     if (!row) return;
-    var img = row.querySelector('.preview-img');
-    var noPreview = row.querySelector('.no-preview');
+    var container = row.querySelector('.media-preview');
     if (!input.files || !input.files[0]) return;
 
+    var file = input.files[0];
     var reader = new FileReader();
     reader.onload = function (e) {
-      img.src = e.target.result;
-      img.classList.remove('hidden');
-      if (noPreview) noPreview.classList.add('hidden');
+      if (container) {
+        container.innerHTML = '';
+        var previewEl = document.createElement('preview-media');
+        previewEl.setAttribute('src', e.target.result);
+        previewEl.setAttribute('alt', file.name);
+        previewEl.setAttribute('class', 'w-full h-full object-cover');
+        if (file.type.startsWith('video/')) {
+          previewEl.setAttribute('data-is-video', 'true');
+        }
+        container.appendChild(previewEl);
+      }
     };
-    reader.readAsDataURL(input.files[0]);
+    reader.readAsDataURL(file);
   }
 
-  /* ── Add a new image row ── */
+  /* ── Add a new media row ── */
   if (addBtn && emptyTemplate) {
     addBtn.addEventListener('click', function () {
       var idx = getTotalForms();
@@ -144,7 +157,7 @@ up.compiler('#formset-container', function (container) {
         };
         fileInput.addEventListener('change', function () {
           window.removeEventListener('focus', cancelHandler);
-          previewImage(fileInput);
+          previewMedia(fileInput);
         }, { once: true });
         window.addEventListener('focus', cancelHandler, { once: true });
         fileInput.click();
@@ -155,25 +168,25 @@ up.compiler('#formset-container', function (container) {
   /* ── Event delegation on the container ── */
   container.addEventListener('change', function (e) {
     if (e.target.type === 'file') {
-      previewImage(e.target);
+      previewMedia(e.target);
     }
   });
 
   container.addEventListener('click', function (e) {
     var removeBtn = e.target.closest('.remove-row');
     if (removeBtn) {
-      var row = removeBtn.closest('.image-row');
+      var row = removeBtn.closest('.media-row');
       if (row) row.remove();
     }
   });
 
-  /* ── Style delete-toggle for existing images ── */
+  /* ── Style delete-toggle for existing media ── */
   container.addEventListener('change', function (e) {
     var checkbox = e.target;
     if (checkbox.type !== 'checkbox') return;
     var label = checkbox.closest('.delete-toggle');
     if (!label) return;
-    var row = checkbox.closest('.image-row');
+    var row = checkbox.closest('.media-row');
     if (!row) return;
 
     if (checkbox.checked) {
@@ -195,8 +208,8 @@ up.compiler('#formset-container', function (container) {
     cb.style.height = '0';
   });
 
-  /* ── Paste image from clipboard ── */
-  function addPastedImageRow(file) {
+  /* ── Paste media from clipboard ── */
+  function addPastedMediaRow(file) {
     if (!emptyTemplate) return;
     var idx = getTotalForms();
     var clone = emptyTemplate.content.cloneNode(true);
@@ -217,7 +230,7 @@ up.compiler('#formset-container', function (container) {
       var dt = new DataTransfer();
       dt.items.add(file);
       fileInput.files = dt.files;
-      previewImage(fileInput);
+      previewMedia(fileInput);
     }
   }
 
@@ -229,9 +242,9 @@ up.compiler('#formset-container', function (container) {
     var items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
     for (var i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
+      if (items[i].type.startsWith('image/') || items[i].type.startsWith('video/')) {
         var file = items[i].getAsFile();
-        if (file) addPastedImageRow(file);
+        if (file) addPastedMediaRow(file);
       }
     }
   }
@@ -247,13 +260,14 @@ document.addEventListener('alpine:init', () => {
 
   // ── Image Picker (loaded as Unpoly modal fragment) ─────────────────────
 
-  Alpine.data('imagePicker', () => ({
+  Alpine.data('mediaPicker', () => ({
     groups: [],
     currentGroupId: null,
-    selected: {},        // {imageId: true/false}
+    selected: {},        // {media: true/false}
     selectedOrder: [],   // insertion-order list of selected IDs (for FIFO)
     target: '',
-    maxImages: 0,
+    maxMedia: 0,
+    allowVideo: true,
     search: '',
     typeFilter: 'all',
     showSelectedOnly: false,
@@ -280,11 +294,14 @@ document.addEventListener('alpine:init', () => {
       const targetEl = document.getElementById('picker-target');
       if (targetEl) this.target = targetEl.value;
 
-      const maxEl = document.getElementById('picker-max-images');
-      if (maxEl && maxEl.value) this.maxImages = parseInt(maxEl.value, 10) || 0;
+      const maxEl = document.getElementById('picker-max-media');
+      if (maxEl && maxEl.value) this.maxMedia = parseInt(maxEl.value, 10) || 0;
+
+      const allowVideoEl = document.getElementById('picker-allow-video');
+      if (allowVideoEl) this.allowVideo = allowVideoEl.value !== '0';
 
       // Read URL config from data attributes on the root element
-      const root = document.getElementById('image-picker');
+      const root = document.getElementById('media-picker');
       if (root) {
         this._refreshUrl = root.dataset.refreshUrl || '';
         this._createUrl = root.dataset.createUrl || '';
@@ -301,10 +318,18 @@ document.addEventListener('alpine:init', () => {
       });
     },
 
-    currentImages() {
+    _allowedMedia(media) {
+      return this.allowVideo ? media : media.filter(img => !img.is_video);
+    },
+
+    groupAllowedMedia(group) {
+      return this._allowedMedia(group.media);
+    },
+
+    currentMedia() {
       if (!this.currentGroupId) return [];
       const group = this.groups.find(g => g.id === this.currentGroupId);
-      return group ? group.images : [];
+      return group ? this._allowedMedia(group.media) : [];
     },
 
     currentGroupTitle() {
@@ -315,21 +340,24 @@ document.addEventListener('alpine:init', () => {
     selectGroup(group) {
       const isNew = this.currentGroupId !== group.id;
       this.currentGroupId = group.id;
-      // Auto-select first image when switching to a new group (uses FIFO if at limit)
-      if (isNew && group.images.length > 0) {
-        const firstId = group.images[0].id;
-        if (!this.selected[firstId]) {
-          this._addToSelection(firstId);
+      // Auto-select first allowed media item when switching to a new group (uses FIFO if at limit)
+      if (isNew) {
+        const allowed = this._allowedMedia(group.media);
+        if (allowed.length > 0) {
+          const firstId = allowed[0].id;
+          if (!this.selected[firstId]) {
+            this._addToSelection(firstId);
+          }
         }
       }
     },
 
-    isSelected(imageId) {
-      return !!this.selected[imageId];
+    isSelected(media) {
+      return !!this.selected[media];
     },
 
     groupHasSelected(group) {
-      return group.images.some(img => !!this.selected[img.id]);
+      return this._allowedMedia(group.media).some(img => !!this.selected[img.id]);
     },
 
     selectedCount() {
@@ -337,43 +365,43 @@ document.addEventListener('alpine:init', () => {
     },
 
     atMax() {
-      return this.maxImages > 0 && this.selectedOrder.length >= this.maxImages;
+      return this.maxMedia > 0 && this.selectedOrder.length >= this.maxMedia;
     },
 
-    _addToSelection(imageId) {
+    _addToSelection(media) {
       const newSelected = { ...this.selected };
       const newOrder = [...this.selectedOrder];
-      if (this.maxImages > 0 && newOrder.length >= this.maxImages) {
+      if (this.maxMedia > 0 && newOrder.length >= this.maxMedia) {
         // FIFO: evict the oldest selection
         const oldest = newOrder.shift();
         if (oldest !== undefined) newSelected[oldest] = false;
       }
-      newSelected[imageId] = true;
-      newOrder.push(imageId);
+      newSelected[media] = true;
+      newOrder.push(media);
       this.selected = newSelected;
       this.selectedOrder = newOrder;
     },
 
-    toggle(imageId) {
-      if (this.selected[imageId]) {
+    toggle(media) {
+      if (this.selected[media]) {
         // Deselect
-        this.selected = { ...this.selected, [imageId]: false };
-        this.selectedOrder = this.selectedOrder.filter(id => id !== imageId);
+        this.selected = { ...this.selected, [media]: false };
+        this.selectedOrder = this.selectedOrder.filter(id => id !== media);
       } else {
-        this._addToSelection(imageId);
+        this._addToSelection(media);
       }
     },
 
-    allSelectedImages() {
+    allSelectedMedia() {
       const idToImg = {};
-      this.groups.forEach(g => g.images.forEach(img => {
+      this.groups.forEach(g => g.media.forEach(img => {
         idToImg[img.id] = img;
       }));
       return this.selectedOrder.map(id => idToImg[id]).filter(Boolean);
     },
 
-    sidebarImages() {
-      return this.showSelectedOnly ? this.allSelectedImages() : this.currentImages();
+    sidebarMedia() {
+      return this.showSelectedOnly ? this.allSelectedMedia() : this.currentMedia();
     },
 
     editGroup(groupId) {
@@ -395,12 +423,14 @@ document.addEventListener('alpine:init', () => {
     confirm() {
       const urlMap = {};
       const groupMap = {};
-      this.groups.forEach(g => g.images.forEach(img => {
+      const isVideoMap = {};
+      this.groups.forEach(g => g.media.forEach(img => {
         urlMap[img.id] = img.url;
         groupMap[img.id] = g.id;
+        isVideoMap[img.id] = img.is_video || false;
       }));
-      const imageIds = this.selectedOrder.map(id => parseInt(id, 10));
-      up.layer.accept({ target: this.target, imageIds, urls: urlMap, groupMap });
+      const mediaIds = this.selectedOrder.map(id => parseInt(id, 10));
+      up.layer.accept({ target: this.target, mediaIds, urls: urlMap, groupMap, isVideoMap });
     },
 
     cancel() {

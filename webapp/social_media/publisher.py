@@ -26,33 +26,37 @@ TWITTER_API_BASE = 'https://api.twitter.com/2'
 TWITTER_UPLOAD_BASE = 'https://upload.twitter.com/1.1'
 
 
-# ─── Image helpers ────────────────────────────────────────────────────────────
+# ─── Media helpers ────────────────────────────────────────────────────────────
 
 
-def _get_image_bytes_and_type(image):
-    """Return (bytes_data, content_type) for a media_library.Image instance."""
-    if image.image:
+def _get_media_bytes_and_type(media_item):
+    """Return (bytes_data, content_type) for a media_library.Media instance."""
+    if media_item.file:
         # Local stored file — read from storage
-        with image.image.open('rb') as f:
+        with media_item.file.open('rb') as f:
             data = f.read()
-        mime, _ = mimetypes.guess_type(image.image.name)
-        return data, mime or 'image/jpeg'
+        mime, _ = mimetypes.guess_type(media_item.file.name)
+        return data, mime or ('video/mp4' if media_item.is_video else 'image/jpeg')
     # External URL — download it
-    resp = http_requests.get(image.external_url, timeout=30)
+    resp = http_requests.get(media_item.external_url, timeout=60)
     resp.raise_for_status()
     ct = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
     return resp.content, ct
 
 
-def _get_absolute_image_url(image, base_url):
+def _get_absolute_media_url(media_item, base_url):
     """
-    Return a publicly accessible URL for an image.
-    For local Django-stored images the base_url (e.g. https://example.com)
-    is prepended to the storage-relative URL.
+    Return a publicly accessible URL for a media item.
+    For local Django-stored files the base_url is prepended to the storage-relative URL.
     """
-    if image.external_url:
-        return image.external_url
-    return base_url.rstrip('/') + image.image.url
+    if media_item.external_url:
+        return media_item.external_url
+    return base_url.rstrip('/') + media_item.file.url
+
+
+# Keep old names as aliases for any code that hasn't been updated yet.
+_get_image_bytes_and_type = _get_media_bytes_and_type
+_get_absolute_image_url = _get_absolute_media_url
 
 
 # ─── LinkedIn ────────────────────────────────────────────────────────────────
@@ -64,7 +68,7 @@ def publish_to_linkedin(platform_variant, connection, base_url=''):
     member_id = connection.external_account_id
     author_urn = f'urn:li:person:{member_id}'
     text = platform_variant.get_effective_text()
-    images = list(platform_variant.get_effective_media())
+    media = list(platform_variant.get_effective_media())
 
     auth_headers = {
         'Authorization': f'Bearer {token}',
@@ -72,35 +76,99 @@ def publish_to_linkedin(platform_variant, connection, base_url=''):
         'X-Restli-Protocol-Version': '2.0.0',
     }
 
-    # Upload images and collect their URNs
-    image_urns = []
-    for media in images:
-        image_data, content_type = _get_image_bytes_and_type(media.image)
+    media_urns = []
+    for media in media:
+        media_data, content_type = _get_media_bytes_and_type(media.media)
+        is_video = media.media.is_video
 
-        # Step 1 — initialize upload
-        init_resp = http_requests.post(
-            f'{LINKEDIN_API_BASE}/rest/images?action=initializeUpload',
-            headers={**auth_headers, 'Content-Type': 'application/json'},
-            json={'initializeUploadRequest': {'owner': author_urn}},
-            timeout=30,
-        )
-        init_resp.raise_for_status()
-        init_data = init_resp.json()
-        upload_url = init_data['value']['uploadUrl']
-        image_urn = init_data['value']['image']
+        if is_video:
+            # Step 1 — initialize video upload
+            init_resp = http_requests.post(
+                f'{LINKEDIN_API_BASE}/rest/videos?action=initializeUpload',
+                headers={**auth_headers, 'Content-Type': 'application/json'},
+                json={
+                    'initializeUploadRequest': {
+                        'owner': author_urn,
+                        'fileSizeBytes': len(media_data),
+                        'uploadCaptions': False,
+                        'uploadThumbnail': False,
+                    }
+                },
+                timeout=30,
+            )
+            init_resp.raise_for_status()
+            init_data = init_resp.json()
+            upload_instructions = init_data['value']['uploadInstructions']
+            video_urn = init_data['value']['video']
 
-        # Step 2 — upload binary
-        put_resp = http_requests.put(
-            upload_url,
-            headers={
-                'Authorization': f'Bearer {token}',
-                'Content-Type': content_type,
-            },
-            data=image_data,
-            timeout=60,
-        )
-        put_resp.raise_for_status()
-        image_urns.append(image_urn)
+            # Step 2 — upload chunks
+            etags = []
+            for instruction in upload_instructions:
+                chunk_start = instruction['firstByte']
+                chunk_end = instruction['lastByte'] + 1
+                chunk_upload_url = instruction['uploadUrl']
+                chunk_data = media_data[chunk_start:chunk_end]
+                put_resp = http_requests.put(
+                    chunk_upload_url,
+                    headers={'Authorization': f'Bearer {token}'},
+                    data=chunk_data,
+                    timeout=120,
+                )
+                put_resp.raise_for_status()
+                etags.append(put_resp.headers.get('ETag', '').strip('"'))
+
+            # Step 3 — finalize upload
+            finalize_resp = http_requests.post(
+                f'{LINKEDIN_API_BASE}/rest/videos?action=finalizeUpload',
+                headers={**auth_headers, 'Content-Type': 'application/json'},
+                json={'finalizeUploadRequest': {'video': video_urn, 'uploadToken': '', 'uploadedPartIds': etags}},
+                timeout=30,
+            )
+            finalize_resp.raise_for_status()
+
+            # Step 4 — wait for LinkedIn to finish processing the video
+            for _ in range(30):
+                time.sleep(5)
+                status_resp = http_requests.get(
+                    f'{LINKEDIN_API_BASE}/rest/videos/{video_urn.replace(":", "%3A")}',
+                    headers=auth_headers,
+                    timeout=15,
+                )
+                if status_resp.ok:
+                    video_status = status_resp.json().get('status', '')
+                    if video_status == 'AVAILABLE':
+                        break
+                    if video_status == 'PROCESSING_FAILED':
+                        raise RuntimeError(f'LinkedIn video processing failed for {video_urn}')
+            else:
+                raise RuntimeError(f'LinkedIn video {video_urn} did not become available in time')
+
+            media_urns.append(('video', video_urn))
+        else:
+            # Step 1 — initialize media upload
+            init_resp = http_requests.post(
+                f'{LINKEDIN_API_BASE}/rest/images?action=initializeUpload',
+                headers={**auth_headers, 'Content-Type': 'application/json'},
+                json={'initializeUploadRequest': {'owner': author_urn}},
+                timeout=30,
+            )
+            init_resp.raise_for_status()
+            init_data = init_resp.json()
+            upload_url = init_data['value']['uploadUrl']
+            image_urn = init_data['value']['media']
+
+            # Step 2 — upload binary
+            put_resp = http_requests.put(
+                upload_url,
+                headers={
+                    'Authorization': f'Bearer {token}',
+                    'Content-Type': content_type,
+                },
+                data=media_data,
+                timeout=60,
+            )
+            put_resp.raise_for_status()
+            media_urns.append(('media', image_urn))
 
     # Build post payload
     payload = {
@@ -116,17 +184,24 @@ def publish_to_linkedin(platform_variant, connection, base_url=''):
         'isReshareDisabledByAuthor': False,
     }
 
-    if len(image_urns) == 1:
-        payload['content'] = {'media': {'id': image_urns[0], 'title': 'Image'}}
-    elif len(image_urns) > 1:
-        payload['content'] = {
-            'multiImage': {
-                'images': [
-                    {'id': urn, 'altText': f'Image {i + 1}'}
-                    for i, urn in enumerate(image_urns)
-                ]
+    if len(media_urns) == 1:
+        kind, urn = media_urns[0]
+        if kind == 'video':
+            payload['content'] = {'media': {'id': urn, 'title': 'Video'}}
+        else:
+            payload['content'] = {'media': {'id': urn, 'title': 'Image'}}
+    elif len(media_urns) > 1:
+        # Multi-media only (LinkedIn doesn't support mixed video+media or multi-video)
+        image_urns = [urn for kind, urn in media_urns if kind == 'media']
+        if image_urns:
+            payload['content'] = {
+                'multiImage': {
+                    'images': [
+                        {'id': urn, 'altText': f'Image {i + 1}'}
+                        for i, urn in enumerate(image_urns)
+                    ]
+                }
             }
-        }
 
     post_resp = http_requests.post(
         f'{LINKEDIN_API_BASE}/rest/posts',
@@ -135,10 +210,8 @@ def publish_to_linkedin(platform_variant, connection, base_url=''):
         timeout=30,
     )
     post_resp.raise_for_status()
-    # LinkedIn REST posts API returns the post URN in the response header
     post_urn = post_resp.headers.get('x-restli-id', '')
     if post_urn:
-        # e.g. urn:li:share:7123456789 → no stable public URL without extra API call
         return f'https://www.linkedin.com/feed/update/{post_urn}/'
     return ''
 
@@ -150,22 +223,82 @@ def publish_to_twitter(platform_variant, connection, base_url=''):
     """Publish to X (Twitter) using the v2 Tweets API."""
     token = connection.access_token
     text = platform_variant.get_effective_text()
-    images = list(platform_variant.get_effective_media())
+    media = list(platform_variant.get_effective_media())
 
     auth_headers = {'Authorization': f'Bearer {token}'}
 
-    # Upload media (v1.1 endpoint — still required for media even with v2 API)
     media_ids = []
-    for media in images[:4]:  # X allows max 4 images per tweet
-        image_data, content_type = _get_image_bytes_and_type(media.image)
-        upload_resp = http_requests.post(
-            f'{TWITTER_UPLOAD_BASE}/media/upload.json',
-            headers=auth_headers,
-            files={'media': ('image', image_data, content_type)},
-            timeout=60,
-        )
-        upload_resp.raise_for_status()
-        media_ids.append(upload_resp.json()['media_id_string'])
+    for media in media[:4]:  # X allows max 4 media items per tweet
+        media_data, content_type = _get_media_bytes_and_type(media.media)
+        is_video = media.media.is_video
+
+        if is_video:
+            # Chunked upload for video: INIT → APPEND → FINALIZE
+            total_bytes = len(media_data)
+            # INIT
+            init_resp = http_requests.post(
+                f'{TWITTER_UPLOAD_BASE}/media/upload.json',
+                headers=auth_headers,
+                data={
+                    'command': 'INIT',
+                    'media_type': content_type,
+                    'total_bytes': total_bytes,
+                    'media_category': 'tweet_video',
+                },
+                timeout=30,
+            )
+            init_resp.raise_for_status()
+            media_id = init_resp.json()['media_id_string']
+
+            # APPEND in 5 MB chunks
+            chunk_size = 5 * 1024 * 1024
+            segment = 0
+            for offset in range(0, total_bytes, chunk_size):
+                chunk = media_data[offset:offset + chunk_size]
+                append_resp = http_requests.post(
+                    f'{TWITTER_UPLOAD_BASE}/media/upload.json',
+                    headers=auth_headers,
+                    data={'command': 'APPEND', 'media_id': media_id, 'segment_index': segment},
+                    files={'media': chunk},
+                    timeout=60,
+                )
+                append_resp.raise_for_status()
+                segment += 1
+
+            # FINALIZE
+            finalize_resp = http_requests.post(
+                f'{TWITTER_UPLOAD_BASE}/media/upload.json',
+                headers=auth_headers,
+                data={'command': 'FINALIZE', 'media_id': media_id},
+                timeout=30,
+            )
+            finalize_resp.raise_for_status()
+            finalize_data = finalize_resp.json()
+
+            # Poll until processing is complete
+            processing_info = finalize_data.get('processing_info')
+            while processing_info and processing_info.get('state') in ('pending', 'in_progress'):
+                check_after = processing_info.get('check_after_secs', 5)
+                time.sleep(check_after)
+                status_resp = http_requests.get(
+                    f'{TWITTER_UPLOAD_BASE}/media/upload.json',
+                    headers=auth_headers,
+                    params={'command': 'STATUS', 'media_id': media_id},
+                    timeout=30,
+                )
+                status_resp.raise_for_status()
+                processing_info = status_resp.json().get('processing_info')
+
+            media_ids.append(media_id)
+        else:
+            upload_resp = http_requests.post(
+                f'{TWITTER_UPLOAD_BASE}/media/upload.json',
+                headers=auth_headers,
+                files={'media': ('media', media_data, content_type)},
+                timeout=60,
+            )
+            upload_resp.raise_for_status()
+            media_ids.append(upload_resp.json()['media_id_string'])
 
     # Create tweet
     tweet_payload = {'text': text}
@@ -193,9 +326,9 @@ def publish_to_facebook(platform_variant, connection, base_url=''):
     access_token = connection.access_token
     page_id = connection.external_account_id
     text = platform_variant.get_effective_text()
-    images = list(platform_variant.get_effective_media())
+    media = list(platform_variant.get_effective_media())
 
-    if not images:
+    if not media:
         # Text-only post
         resp = http_requests.post(
             f'{GRAPH_API_BASE}/{page_id}/feed',
@@ -205,27 +338,41 @@ def publish_to_facebook(platform_variant, connection, base_url=''):
         resp.raise_for_status()
         post_id = resp.json().get('id', '')
         return f'https://www.facebook.com/{post_id}' if post_id else ''
-    elif len(images) == 1:
-        # Single-image post (creates the post directly)
-        image_data, content_type = _get_image_bytes_and_type(images[0].image)
+
+    # Check if first item is a video — Facebook video posts take a single video
+    first_media = media[0].media
+    if first_media.is_video:
+        media_data, content_type = _get_media_bytes_and_type(first_media)
+        resp = http_requests.post(
+            f'{GRAPH_API_BASE}/{page_id}/videos',
+            data={'description': text, 'access_token': access_token},
+            files={'source': ('video', media_data, content_type)},
+            timeout=180,
+        )
+        resp.raise_for_status()
+        video_id = resp.json().get('id', '')
+        return f'https://www.facebook.com/{video_id}' if video_id else ''
+    elif len(media) == 1:
+        # Single-media post (creates the post directly)
+        media_data, content_type = _get_media_bytes_and_type(first_media)
         resp = http_requests.post(
             f'{GRAPH_API_BASE}/{page_id}/photos',
             data={'message': text, 'access_token': access_token},
-            files={'source': ('image', image_data, content_type)},
+            files={'source': ('media', media_data, content_type)},
             timeout=60,
         )
         resp.raise_for_status()
         post_id = resp.json().get('post_id', resp.json().get('id', ''))
         return f'https://www.facebook.com/{post_id}' if post_id else ''
     else:
-        # Multi-image: upload each photo as unpublished, then create feed post
+        # Multi-media: upload each photo as unpublished, then create feed post
         photo_ids = []
-        for media in images[:10]:  # Facebook max 10
-            image_data, content_type = _get_image_bytes_and_type(media.image)
+        for media in media[:10]:  # Facebook max 10
+            media_data, content_type = _get_media_bytes_and_type(media.media)
             photo_resp = http_requests.post(
                 f'{GRAPH_API_BASE}/{page_id}/photos',
                 data={'published': 'false', 'access_token': access_token},
-                files={'source': ('image', image_data, content_type)},
+                files={'source': ('media', media_data, content_type)},
                 timeout=60,
             )
             photo_resp.raise_for_status()
@@ -277,20 +424,36 @@ def _wait_for_ig_container(container_id, access_token, timeout=90, interval=5):
 def publish_to_instagram(platform_variant, connection, base_url=''):
     """
     Publish to Instagram using the Instagram Graph API.
-    Images must be accessible via public URL.
-    Single images → single media container.
-    Multiple images → carousel container.
+    Images → single media or carousel container.
+    Video → single REELS container.
     """
     access_token = connection.access_token
     ig_user_id = connection.external_account_id
     text = platform_variant.get_effective_text()
-    images = list(platform_variant.get_effective_media())
+    media = list(platform_variant.get_effective_media())
 
-    if not images:
-        raise ValueError('Instagram requires at least one image to publish.')
+    if not media:
+        raise ValueError('Instagram requires at least one media or video to publish.')
 
-    if len(images) == 1:
-        image_url = _get_absolute_image_url(images[0].image, base_url)
+    first_media = media[0].media
+
+    if first_media.is_video:
+        # Video post (Reels)
+        video_url = _get_absolute_media_url(first_media, base_url)
+        container_resp = http_requests.post(
+            f'{IG_GRAPH_BASE}/{ig_user_id}/media',
+            data={
+                'video_url': video_url,
+                'media_type': 'REELS',
+                'caption': text,
+                'access_token': access_token,
+            },
+            timeout=30,
+        )
+        container_resp.raise_for_status()
+        container_id = container_resp.json()['id']
+    elif len(media) == 1:
+        image_url = _get_absolute_media_url(first_media, base_url)
         container_resp = http_requests.post(
             f'{IG_GRAPH_BASE}/{ig_user_id}/media',
             data={
@@ -303,10 +466,10 @@ def publish_to_instagram(platform_variant, connection, base_url=''):
         container_resp.raise_for_status()
         container_id = container_resp.json()['id']
     else:
-        # Carousel: create one item container per image first
+        # Carousel: create one item container per media first
         item_ids = []
-        for media in images[:10]:  # Instagram carousel max 10
-            image_url = _get_absolute_image_url(media.image, base_url)
+        for media in media[:10]:  # Instagram carousel max 10
+            image_url = _get_absolute_media_url(media.media, base_url)
             item_resp = http_requests.post(
                 f'{IG_GRAPH_BASE}/{ig_user_id}/media',
                 data={
@@ -346,7 +509,6 @@ def publish_to_instagram(platform_variant, connection, base_url=''):
         timeout=30,
     )
     publish_resp.raise_for_status()
-    # Instagram Graph API does not return a stable public URL; return empty
     return ''
 
 

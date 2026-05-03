@@ -1,8 +1,19 @@
 from django.conf import settings
 from django.db import models
 
+VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.webm', '.mkv', '.m4v', '.wmv'}
 
-class ImageGroup(models.Model):
+
+def _url_is_video(url):
+    if not url:
+        return False
+    from pathlib import PurePosixPath
+    from urllib.parse import urlparse
+    path = PurePosixPath(urlparse(url).path)
+    return path.suffix.lower() in VIDEO_EXTENSIONS
+
+
+class MediaGroup(models.Model):
     class GroupType(models.TextChoices):
         PRODUCT = 'product', 'Product'
         MANUAL = 'manual', 'Manual'
@@ -11,12 +22,12 @@ class ImageGroup(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='image_groups',
+        related_name='media_groups',
     )
     project = models.ForeignKey(
         'projects.Project',
         on_delete=models.CASCADE,
-        related_name='image_groups',
+        related_name='media_groups',
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -35,22 +46,31 @@ class ImageGroup(models.Model):
         return self.title
 
 
-class Image(models.Model):
-    class ImageType(models.TextChoices):
+class Media(models.Model):
+    class MediaType(models.TextChoices):
+        IMAGE = 'image', 'Image'
+        VIDEO = 'video', 'Video'
+
+    class SourceType(models.TextChoices):
         MANUAL = 'manual', 'Manual'
         GENERATED = 'generated', 'Generated'
 
-    image_group = models.ForeignKey(
-        ImageGroup,
+    media_group = models.ForeignKey(
+        MediaGroup,
         on_delete=models.CASCADE,
-        related_name='images',
+        related_name='media_items',
     )
-    image = models.ImageField(upload_to='media_library/images/%Y/%m/', blank=True, null=True)
+    file = models.FileField(upload_to='media_library/%Y/%m/', blank=True, null=True)
     external_url = models.URLField(blank=True)
-    image_type = models.CharField(
+    media_type = models.CharField(
+        max_length=10,
+        choices=MediaType.choices,
+        default=MediaType.IMAGE,
+    )
+    source_type = models.CharField(
         max_length=20,
-        choices=ImageType.choices,
-        default=ImageType.MANUAL,
+        choices=SourceType.choices,
+        default=SourceType.MANUAL,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -58,14 +78,25 @@ class Image(models.Model):
         ordering = ['-created_at']
 
     @property
+    def is_video(self):
+        if self.media_type == self.MediaType.VIDEO:
+            return True
+        # Auto-detect from file name or external URL if media_type not explicitly set
+        if self.file and self.file.name:
+            from pathlib import PurePosixPath
+            return PurePosixPath(self.file.name).suffix.lower() in VIDEO_EXTENSIONS
+        return _url_is_video(self.external_url)
+
+    @property
     def url(self):
-        if self.image:
-            return self.image.url
+        if self.file:
+            return self.file.url
         return self.external_url
 
     def __str__(self):
-        if self.image:
-            return self.image.name
+        if self.file:
+            return self.file.name
         if self.external_url:
             return self.external_url
-        return f'Image {self.pk}'
+        return f'Media {self.pk}'
+

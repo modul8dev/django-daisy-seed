@@ -106,8 +106,8 @@ class SocialMediaPostMedia(models.Model):
         on_delete=models.CASCADE,
         related_name='shared_media',
     )
-    image = models.ForeignKey(
-        'media_library.Image',
+    media = models.ForeignKey(
+        'media_library.Media',
         on_delete=models.CASCADE,
     )
     sort_order = models.PositiveIntegerField(default=0)
@@ -116,17 +116,17 @@ class SocialMediaPostMedia(models.Model):
         ordering = ['sort_order']
 
     def __str__(self):
-        return f'Shared media for {self.post.title}: {self.image}'
+        return f'Shared media for {self.post.title}: {self.media}'
 
 
 class SocialMediaPostSeedImage(models.Model):
     post = models.ForeignKey(
         SocialMediaPost,
         on_delete=models.CASCADE,
-        related_name='seed_images',
+        related_name='seed_media',
     )
-    image = models.ForeignKey(
-        'media_library.Image',
+    media = models.ForeignKey(
+        'media_library.Media',
         on_delete=models.CASCADE,
     )
     sort_order = models.PositiveIntegerField(default=0)
@@ -135,7 +135,7 @@ class SocialMediaPostSeedImage(models.Model):
         ordering = ['sort_order']
 
     def __str__(self):
-        return f'Seed image for {self.post.title}: {self.image}'
+        return f'Seed media for {self.post.title}: {self.media}'
 
 
 class SocialMediaPlatformMedia(models.Model):
@@ -144,8 +144,8 @@ class SocialMediaPlatformMedia(models.Model):
         on_delete=models.CASCADE,
         related_name='override_media',
     )
-    image = models.ForeignKey(
-        'media_library.Image',
+    media = models.ForeignKey(
+        'media_library.Media',
         on_delete=models.CASCADE,
     )
     sort_order = models.PositiveIntegerField(default=0)
@@ -154,4 +154,4 @@ class SocialMediaPlatformMedia(models.Model):
         ordering = ['sort_order']
 
     def __str__(self):
-        return f'Override media for {self.platform_variant}: {self.image}'
+        return f'Override media for {self.platform_variant}: {self.media}'

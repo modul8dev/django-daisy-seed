@@ -1,21 +1,21 @@
 from django.contrib import admin
 
-from .models import Image, ImageGroup
+from .models import Media, MediaGroup
 
 
-class ImageInline(admin.TabularInline):
-    model = Image
+class MediaInline(admin.TabularInline):
+    model = Media
     extra = 1
 
 
-@admin.register(ImageGroup)
-class ImageGroupAdmin(admin.ModelAdmin):
+@admin.register(MediaGroup)
+class MediaGroupAdmin(admin.ModelAdmin):
     list_display = ['title', 'created_at']
     search_fields = ['title']
-    inlines = [ImageInline]
+    inlines = [MediaInline]
 
 
-@admin.register(Image)
-class ImageAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'image_group', 'created_at']
-    list_filter = ['image_group']
+@admin.register(Media)
+class MediaAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'media_group', 'media_type', 'created_at']
+    list_filter = ['media_group', 'media_type']

@@ -2,8 +2,9 @@ import os
 from enum import Enum
 
 from django.core.files.base import ContentFile
+from pydantic import BaseModel as PydanticBaseModel
 
-from media_library.models import Image, ImageGroup
+from media_library.models import Media, MediaGroup
 from services.prompts.social_media_edit import EDIT_ACTIONS, SOCIAL_MEDIA_EDIT_SYSTEM, SYSTEM_PROMPTS
 from services.prompts.social_media_generate import SOCIAL_MEDIA_GENERATE_PROMPT
 from services.prompts.social_media_image import IMAGE_PRE_PROMPTS, IMAGE_TYPOGRAPHY_SUFFIX, IMAGE_VISUAL_FIDELITY_SUFFIX
@@ -33,18 +34,31 @@ def _openai_chat(messages, model=OpenAIModel.QUICK, **kwargs):
     return response.output_text.strip()
 
 
+def _openai_chat_parsed(messages, text_format, model=OpenAIModel.QUICK, **kwargs):
+    """Send a chat request to OpenAI using structured outputs and return the parsed Pydantic object."""
+    client = _get_openai_client()
+    kwargs.setdefault("reasoning", {"effort": "low"})
+    kwargs.update(
+        model=model.value,
+        input=messages,
+        text_format=text_format,
+    )
+    response = client.responses.parse(**kwargs)
+    return response.output_parsed
+
+
 def _get_gemini_client():
     from google import genai
     return genai.Client(api_key=os.environ.get('GOOGLE_API_KEY', ''))
 
 
-def _build_image_descriptions(seed_images):
-    if not seed_images:
+def _build_media_descriptions(seed_media):
+    if not seed_media:
         return ''
-    lines = ['Seed images provided as context:']
-    for i, img in enumerate(seed_images, 1):
-        description = str(img.image_group.description)
-        title = img.image_group.title
+    lines = ['Seed media provided as context:']
+    for i, img in enumerate(seed_media, 1):
+        description = str(img.media_group.description)
+        title = img.media_group.title
         img_context = f'Title:{title} - Description:{description}' if description else title
         lines.append(f'  {i}. {img_context}')
     return '\n'.join(lines)
@@ -68,23 +82,37 @@ def _get_language_instruction(brand):
     return get_language_instruction(language_name)
 
 
+class _BrandExtractResult(PydanticBaseModel):
+    name: str
+    summary: str
+    style_guide: str
+    tone_of_voice: str
+    target_audience: str
+    fonts: str
+    primary_color: str
+    secondary_color: str
+
+
 def extract_brand_data(markdown_content, language_instruction=None):
     """Extract structured brand data from markdown content using OpenAI. Returns a dict."""
-    import json
     from services.prompts.brand_extract import BRAND_EXTRACT_PROMPT
 
     system_content = BRAND_EXTRACT_PROMPT
     if language_instruction:
         system_content = system_content.rstrip() + f'\n{language_instruction}'
 
-    raw = _openai_chat(
+    result = _openai_chat_parsed(
         messages=[
             {'role': 'system', 'content': system_content},
             {'role': 'user', 'content': markdown_content[:20000]},
         ],
-        response_format={'type': 'json_object'},
+        text_format=_BrandExtractResult,
     )
-    return json.loads(raw)
+    return result.model_dump()
+
+
+class _UrlSelectResult(PydanticBaseModel):
+    urls: list[str]
 
 
 def select_brand_urls(all_urls, base_url):
@@ -92,48 +120,30 @@ def select_brand_urls(all_urls, base_url):
     Ask the LLM to pick the 5-7 URLs from all_urls most likely to contain brand data.
     Returns a list of URL strings (subset of all_urls).
     """
-    import json
     from services.prompts.brand_extract import BRAND_URL_SELECT_PROMPT
 
     url_list = '\n'.join(all_urls[:200])  # cap to avoid token overflow
     user_msg = f'Website: {base_url}\n\nAvailable URLs:\n{url_list}'
-    raw = _openai_chat(
+    result = _openai_chat_parsed(
         messages=[
             {'role': 'system', 'content': BRAND_URL_SELECT_PROMPT},
             {'role': 'user', 'content': user_msg},
         ],
-        response_format={'type': 'json_object'},
+        text_format=_UrlSelectResult,
         model=OpenAIModel.QUICK,
     )
-    # The prompt asks for a JSON array, but json_object mode requires an object.
-    # Handle both {"urls": [...]} and a bare list wrapped in an object.
-    parsed = json.loads(raw)
-    if isinstance(parsed, list):
-        selected = parsed
-    elif isinstance(parsed, dict):
-        # Try common wrapper keys
-        for key in ('urls', 'selected', 'pages', 'links'):
-            if key in parsed and isinstance(parsed[key], list):
-                selected = parsed[key]
-                break
-        else:
-            # Fall back to first list value found
-            selected = next((v for v in parsed.values() if isinstance(v, list)), [])
-    else:
-        selected = []
-
     # Return only valid strings that were in the original list
     all_urls_set = set(all_urls)
-    return [u for u in selected if isinstance(u, str) and u in all_urls_set]
+    return [u for u in result.urls if isinstance(u, str) and u in all_urls_set]
 
 
-def suggest_topic(brand, seed_images):
-    """Suggest topics based on brand context and seed images. Returns a list."""
+def suggest_topic(brand, seed_media):
+    """Suggest topics based on brand context and seed media. Returns a list."""
     import re
     ctx = _get_brand_context(brand)
     lang = _get_language_instruction(brand)
     prompt = SOCIAL_MEDIA_TOPIC_PROMPT.format(
-        image_descriptions=_build_image_descriptions(seed_images),
+        media_descriptions=_build_media_descriptions(seed_media),
         **ctx,
     )
     raw = _openai_chat(
@@ -152,8 +162,8 @@ def suggest_topic(brand, seed_images):
             topics.append(cleaned)
     return topics if topics else [raw]
 
-def _generate_gemini_image(prompt, input_images=None):
-    """Call Gemini image generation and return (image_data, mime_type) or None."""
+def _generate_gemini_media(prompt, input_media=None):
+    """Call Gemini media generation and return (media_data, mime_type) or None."""
     from io import BytesIO
     import requests
     from PIL import Image as PILImage
@@ -167,7 +177,7 @@ def _generate_gemini_image(prompt, input_images=None):
 
     client = _get_gemini_client()
     def _open_as_pil(path_or_bytes, is_bytes=False):
-        """Open an image as PIL, converting SVG to PNG via cairosvg if needed."""
+        """Open an media as PIL, converting SVG to PNG via cairosvg if needed."""
         if is_bytes:
             return PILImage.open(BytesIO(path_or_bytes))
         if path_or_bytes.lower().endswith('.svg'):
@@ -176,11 +186,11 @@ def _generate_gemini_image(prompt, input_images=None):
             return PILImage.open(BytesIO(png_bytes))
         return PILImage.open(path_or_bytes)
 
-    pil_images = []
+    pil_media = []
     try:
-        for img in (input_images or []):
-            if img.image and img.image.name:
-                pil_images.append(_open_as_pil(img.image.path))
+        for img in (input_media or []):
+            if img.file and img.file.name:
+                pil_media.append(_open_as_pil(img.file.path))
             elif img.external_url:
                 try:
                     resp = requests.get(img.external_url, headers=_browser_headers, timeout=15)
@@ -189,13 +199,13 @@ def _generate_gemini_image(prompt, input_images=None):
                     if 'svg' in content_type or img.external_url.lower().endswith('.svg'):
                         import cairosvg
                         png_bytes = cairosvg.svg2png(bytestring=resp.content)
-                        pil_images.append(PILImage.open(BytesIO(png_bytes)))
+                        pil_media.append(PILImage.open(BytesIO(png_bytes)))
                     else:
-                        pil_images.append(PILImage.open(BytesIO(resp.content)))
+                        pil_media.append(PILImage.open(BytesIO(resp.content)))
                 except requests.RequestException as exc:
-                    raise RuntimeError(f'Failed to fetch image from {img.external_url}: {exc}') from exc
+                    raise RuntimeError(f'Failed to fetch media from {img.external_url}: {exc}') from exc
 
-        contents = [prompt] + pil_images
+        contents = [prompt] + pil_media
 
         response = client.models.generate_content(
             model='gemini-3.1-flash-image-preview',
@@ -208,7 +218,7 @@ def _generate_gemini_image(prompt, input_images=None):
             ),
         )
     finally:
-        for pil_img in pil_images:
+        for pil_img in pil_media:
             pil_img.close()
 
     for part in response.candidates[0].content.parts:
@@ -217,7 +227,7 @@ def _generate_gemini_image(prompt, input_images=None):
 
     return None
 
-def generate_post_text(brand, topic, post_type, seed_images, platforms):
+def generate_post_text(brand, topic, post_type, seed_media, platforms):
     """Generate post text using OpenAI."""
     ctx = _get_brand_context(brand)
     lang = _get_language_instruction(brand)
@@ -225,7 +235,7 @@ def generate_post_text(brand, topic, post_type, seed_images, platforms):
         topic=topic or 'general brand post',
         post_type=post_type or 'lifestyle',
         platforms=', '.join(platforms) if platforms else 'general',
-        image_descriptions=_build_image_descriptions(seed_images),
+        media_descriptions=_build_media_descriptions(seed_media),
         **ctx,
     )
     return _openai_chat(messages=[
@@ -233,8 +243,8 @@ def generate_post_text(brand, topic, post_type, seed_images, platforms):
         {'role': 'user', 'content': prompt},
     ])
 
-def _generate_image_prompt(brand, topic, post_type, seed_images):
-    """Use OpenAI to generate a detailed image prompt based on brand, topic, post type, and seed images."""
+def _generate_media_prompt(brand, topic, post_type, seed_media):
+    """Use OpenAI to generate a detailed media prompt based on brand, topic, post type, and seed media."""
     pre_prompt_template = IMAGE_PRE_PROMPTS.get((post_type or '').lower())
     if not pre_prompt_template:
         return None
@@ -245,7 +255,7 @@ def _generate_image_prompt(brand, topic, post_type, seed_images):
         f"Summary: {ctx['brand_summary']}\n"
         f"Style: {ctx['brand_style_guide']}"
     )
-    product_info = _build_image_descriptions(seed_images) or 'No product reference provided.'
+    product_info = _build_media_descriptions(seed_media) or 'No product reference provided.'
 
     pre_prompt = pre_prompt_template.format(
         brand_info=brand_info,
@@ -253,65 +263,65 @@ def _generate_image_prompt(brand, topic, post_type, seed_images):
         topic=topic or 'general brand post',
     )
 
-    image_prompt = _openai_chat(
+    media_prompt = _openai_chat(
         messages=[{'role': 'user', 'content': pre_prompt}],
         model=OpenAIModel.NORMAL,
     )
 
     if (post_type or '').lower() in ('product', 'lifestyle'):
-        image_prompt += IMAGE_TYPOGRAPHY_SUFFIX
-    image_prompt += IMAGE_VISUAL_FIDELITY_SUFFIX
+        media_prompt += IMAGE_TYPOGRAPHY_SUFFIX
+    media_prompt += IMAGE_VISUAL_FIDELITY_SUFFIX
 
-    return image_prompt
+    return media_prompt
 
 
-def generate_post_image(brand, topic, post_type, seed_images, user, project=None):
-    """Generate an image using Gemini and save it to the media library."""
-    # Step 1: generate a detailed image prompt via OpenAI
-    prompt = _generate_image_prompt(brand, topic, post_type, seed_images)
+def generate_post_media(brand, topic, post_type, seed_media, user, project=None):
+    """Generate an media using Gemini and save it to the media library."""
+    # Step 1: generate a detailed media prompt via OpenAI
+    prompt = _generate_media_prompt(brand, topic, post_type, seed_media)
 
     # Fallback to a simple prompt if no matching pre-prompt template exists
     if not prompt:
         seed_lines = []
-        if seed_images:
-            seed_lines.append('Reference images provided for context and style inspiration:')
-            for i, img in enumerate(seed_images, 1):
-                name = img.image.name.split('/')[-1] if img.image and img.image.name else str(img)
+        if seed_media:
+            seed_lines.append('Reference media provided for context and style inspiration:')
+            for i, img in enumerate(seed_media, 1):
+                name = img.media.name.split('/')[-1] if img.media and img.media.name else str(img)
                 description = str(img)
                 seed_lines.append(f'  {i}. Name: {name} — {description}')
             seed_lines.append(
-                'Use the reference images above to inform visual style, composition, and subject matter.'
+                'Use the reference media above to inform visual style, composition, and subject matter.'
             )
             seed_lines.append('')
         pre_prompt = '\n'.join(seed_lines) if seed_lines else ''
         prompt = (
             f"{pre_prompt}"
-            f"Create a professional social media image for brand '{brand.name or 'brand'}'. "
+            f"Create a professional social media media for brand '{brand.name or 'brand'}'. "
             f"Topic: {topic or 'general'}. Post type: {post_type or 'lifestyle'}. "
             f"Style: {brand.style_guide or 'professional, clean, modern'}."
         )
 
-    # Step 2: generate the actual image using the prompt
-    result = _generate_gemini_image(prompt, input_images=seed_images)
+    # Step 2: generate the actual media using the prompt
+    result = _generate_gemini_media(prompt, input_media=seed_media)
     if result is None:
         return None
 
-    image_data, mime_type = result
+    media_data, mime_type = result
 
-    if seed_images:
-        group = seed_images[0].image_group
+    if seed_media:
+        group = seed_media[0].media_group
     else:
-        group, _ = ImageGroup.objects.get_or_create(
+        group, _ = MediaGroup.objects.get_or_create(
             user=user,
             project=project,
-            title='AI Generated Images',
-            type=ImageGroup.GroupType.MANUAL,
+            title='AI Generated Media',
+            type=MediaGroup.GroupType.MANUAL,
         )
 
     ext = 'png' if 'png' in mime_type else 'jpg'
-    image_obj = Image(image_group=group)
-    image_obj.image.save(f'ai_generated.{ext}', ContentFile(image_data), save=True)
-    return image_obj
+    media_obj = Media(media_group=group)
+    media_obj.file.save(f'ai_generated.{ext}', ContentFile(media_data), save=True)
+    return media_obj
 
 
 def edit_text(action, text, brand, platform=None, instruction=None, system_prompt_key=None):
@@ -340,20 +350,20 @@ def edit_text(action, text, brand, platform=None, instruction=None, system_promp
     )
 
 
-def generate_editor_image(prompt, input_images, brand, user, output_group):
-    """Generate an image via the Image Editor using Gemini and save to output_group."""
+def generate_editor_media(prompt, input_media, brand, user, output_group):
+    """Generate an media via the Image Editor using Gemini and save to output_group."""
     brand_context = _get_brand_context(brand) if brand else None
     full_prompt = f"{brand_context} {prompt}".strip() if brand_context else prompt
 
-    result = _generate_gemini_image(full_prompt, input_images=input_images)
+    result = _generate_gemini_media(full_prompt, input_media=input_media)
     if result is None:
         return None
 
-    image_data, mime_type = result
+    media_data, mime_type = result
     ext = 'png' if 'png' in mime_type else 'jpg'
-    image_obj = Image(
-        image_group=output_group,
-        image_type=Image.ImageType.GENERATED,
+    media_obj = Media(
+        media_group=output_group,
+        source_type=Media.SourceType.GENERATED,
     )
-    image_obj.image.save(f'ai_editor.{ext}', ContentFile(image_data), save=True)
-    return image_obj
+    media_obj.file.save(f'ai_editor.{ext}', ContentFile(media_data), save=True)
+    return media_obj

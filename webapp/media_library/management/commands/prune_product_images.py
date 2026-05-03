@@ -4,13 +4,13 @@ from urllib.parse import urljoin
 from django.core.management.base import BaseCommand, CommandError
 
 from brand.models import Brand
-from media_library.image_heuristics import _normalize_image_identity, _select_distinct_product_image_urls
-from media_library.models import ImageGroup
+from media_library.media_heuristics import _normalize_media_identity, _select_distinct_product_media_urls
+from media_library.models import MediaGroup
 from projects.models import Project
 
 
 class Command(BaseCommand):
-    help = 'Prune noisy imported product images using the same heuristics as the domain crawler.'
+    help = 'Prune noisy imported product media using the same heuristics as the domain crawler.'
 
     def add_arguments(self, parser):
         parser.add_argument('--project-id', type=int, help='Project ID to inspect.')
@@ -18,7 +18,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--apply',
             action='store_true',
-            help='Delete the images that the heuristic rejects. Defaults to dry-run.',
+            help='Delete the media that the heuristic rejects. Defaults to dry-run.',
         )
 
     def handle(self, *args, **options):
@@ -31,8 +31,8 @@ class Command(BaseCommand):
             page_url = ''
 
         groups = list(
-            ImageGroup.objects.filter(project=project, type=ImageGroup.GroupType.PRODUCT)
-            .prefetch_related('images')
+            MediaGroup.objects.filter(project=project, type=MediaGroup.GroupType.PRODUCT)
+            .prefetch_related('media_items')
         )
         if not groups:
             self.stdout.write(self.style.WARNING('No product groups found for that project.'))
@@ -41,9 +41,9 @@ class Command(BaseCommand):
         asset_page_counts = Counter()
         for group in groups:
             identities = {
-                _normalize_image_identity(urljoin(page_url, image.external_url or image.url))
-                for image in group.images.all()
-                if image.external_url or image.url
+                _normalize_media_identity(urljoin(page_url, media.external_url or media.url))
+                for media in group.media_items.all()
+                if media.external_url or media.url
             }
             asset_page_counts.update(identity for identity in identities if identity)
 
@@ -52,11 +52,11 @@ class Command(BaseCommand):
         affected_groups = 0
 
         for group in groups:
-            images = list(group.images.all())
-            image_urls = [image.external_url or image.url for image in images if image.external_url or image.url]
+            media = list(group.media_items.all())
+            media_urls = [media.external_url or media.url for media in media if media.external_url or media.url]
             keep_urls = set(
-                _select_distinct_product_image_urls(
-                    image_urls,
+                _select_distinct_product_media_urls(
+                    media_urls,
                     page_url=page_url,
                     page_title=group.title,
                     page_description=group.description,
@@ -69,7 +69,7 @@ class Command(BaseCommand):
                 skipped_groups += 1
                 continue
 
-            to_remove = [image for image in images if (image.external_url or image.url) not in keep_urls]
+            to_remove = [media for media in media if (media.external_url or media.url) not in keep_urls]
             if not to_remove:
                 continue
 
@@ -80,15 +80,15 @@ class Command(BaseCommand):
             )
 
             if options['apply']:
-                for image in to_remove:
-                    image.delete()
+                for media in to_remove:
+                    media.delete()
 
         mode = 'Applied' if options['apply'] else 'Dry run'
         self.stdout.write(
             self.style.SUCCESS(
                 f'{mode} complete for project {project.id} "{project.name}". '
                 f'Affected groups: {affected_groups}. '
-                f'Images removed: {removed}. '
+                f'Media removed: {removed}. '
                 f'Groups skipped with no confident keepers: {skipped_groups}.'
             )
         )

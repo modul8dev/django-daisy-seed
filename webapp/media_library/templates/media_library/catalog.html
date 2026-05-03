@@ -8,7 +8,7 @@
     <div class="flex items-start justify-between gap-4 mb-6">
         <div>
             <h2 class="text-lg font-semibold text-zinc-900">Catalog</h2>
-            <p class="mt-1 text-sm text-zinc-500">Manage your products and image groups.</p>
+            <p class="mt-1 text-sm text-zinc-500">Manage your products and media groups.</p>
         </div>
         <div class="flex shrink-0 flex-wrap items-center gap-3">
             <a href="{% url 'media_library:products_import' %}"
@@ -33,20 +33,20 @@
                 </svg>
                 Import from URL
             </a>
-            <a href="{% url 'media_library:image_editor_modal' %}"
+            <a href="{% url 'media_library:media_editor_modal' %}"
                up-layer="new"
                up-mode="modal"
                up-history="false"
                up-size="large"
-               up-class="image-editor"
+               up-class="media-editor"
                up-on-accepted="up.reload('.catalog-grid')"
                class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
                 </svg>
-                Create new image
+                Create new media
             </a>
-            <a href="{% url 'media_library:image_group_create' %}?type=manual"
+            <a href="{% url 'media_library:media_group_create' %}?type=manual"
                up-layer="new"
                up-mode="modal"
                up-size="large"
@@ -98,7 +98,7 @@
         {% if groups %}
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             {% for group in groups %}
-            <a href="{% url 'media_library:image_group_edit' group.pk %}"
+            <a href="{% url 'media_library:media_group_edit' group.pk %}"
                x-show="visible($el)"
                data-type="{{ group.type }}"
                data-title="{{ group.title|lower }}"
@@ -109,10 +109,10 @@
                up-history="false"
                up-on-accepted="up.reload('.catalog-grid')"
                class="group/card flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
-                {# Image thumbnails #}
-                {% with images=group.images.all count=group.images.count %}
+                {# Media thumbnails #}
+                {% with media=group.media_items.all count=group.media_items.count %}
                 <div class="h-64 p-4 pb-3 border-b border-zinc-100">
-                    {% if images %}
+                    {% if media %}
                     {% if count == 1 %}
                     <div class="grid grid-cols-1 grid-rows-1 gap-2 h-full">
                     {% elif count == 2 %}
@@ -124,17 +124,30 @@
                     {% else %}
                     <div class="grid grid-cols-4 grid-rows-2 gap-2 h-full">
                     {% endif %}
-                        {% for img in images|slice:":8" %}
+                        {% for item in media|slice:":8" %}
                             {% if forloop.counter == 8 and count > 8 %}
                             <div class="relative rounded-lg overflow-hidden bg-zinc-100">
-                                <img src="{{ img.url }}" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+                                {% if item.is_video %}
+                                <video src="{{ item.url }}" class="absolute inset-0 w-full h-full object-cover" muted preload="metadata"></video>
+                                {% else %}
+                                <img src="{{ item.url }}" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+                                {% endif %}
                                 <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
                                     <span class="text-white text-xs font-bold">+{{ count|add:"-7" }}</span>
                                 </div>
                             </div>
                             {% else %}
-                            <div class="rounded-lg overflow-hidden bg-zinc-100">
-                                <img src="{{ img.url }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                            <div class="relative rounded-lg overflow-hidden bg-zinc-100">
+                                {% if item.is_video %}
+                                <video src="{{ item.url }}" class="w-full h-full object-cover" muted preload="metadata"></video>
+                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="size-6 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                </div>
+                                {% else %}
+                                <img src="{{ item.url }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                                {% endif %}
                             </div>
                             {% endif %}
                         {% endfor %}
@@ -144,7 +157,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="size-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                         </svg>
-                        <span class="text-xs mt-1 text-zinc-400">No images</span>
+                        <span class="text-xs mt-1 text-zinc-400">No media</span>
                     </div>
                     {% endif %}
                 </div>
@@ -162,7 +175,7 @@
                     <div class="flex items-center justify-between gap-2 mt-4">
                         <button type="button"
                                 up-follow
-                                up-href="{% url 'social_media:post_create' %}?seed_image_ids={% for img in group.images.all %}{{ img.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                                up-href="{% url 'social_media:post_create' %}?seed_media_ids={% for item in group.media_items.all %}{{ item.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
                                 up-layer="new"
                                 up-mode="modal"
                                 up-size="large"
@@ -176,12 +189,12 @@
                         <div class="flex items-center gap-2">
                             <button type="button"
                                     up-follow
-                                    up-href="{% url 'media_library:image_editor_modal' %}?group_id={{ group.pk }}"
+                                    up-href="{% url 'media_library:media_editor_modal' %}?group_id={{ group.pk }}"
                                     up-layer="new"
                                     up-mode="modal"
                                     up-size="large"
                                     up-history="false"
-                                    up-class="image-editor"
+                                    up-class="media-editor"
                                     up-on-dismissed="up.reload('.catalog-grid')"
                                     aria-label="Edit in AI Editor"
                                     class="inline-flex size-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
@@ -190,9 +203,9 @@
                                 </svg>
                             </button>
                             <form method="post"
-                                  action="{% url 'media_library:image_group_delete' group.pk %}"
+                                  action="{% url 'media_library:media_group_delete' group.pk %}"
                                   up-submit
-                                  up-confirm="Delete &quot;{{ group.title }}&quot;? This will also delete all images in this group."
+                                  up-confirm="Delete &quot;{{ group.title }}&quot;? This will also delete all media in this group."
                                   onclick="event.stopPropagation()">
                                 <input type="hidden" name="next" value="{% url 'catalog' %}">
                                 {% csrf_token %}

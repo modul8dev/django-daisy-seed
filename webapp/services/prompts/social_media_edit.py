@@ -26,10 +26,10 @@ Return only the edited post text, no explanations or metadata.
 """
 
 SYSTEM_PROMPTS = {
-    'image_editor': """
-You are an AI image prompt editor for the brand "{brand_name}".
+    'media_editor': """
+You are an AI media prompt editor for the brand "{brand_name}".
 
-Your role is to write and refine high-quality image generation prompts based on user intent.
+Your role is to write and refine high-quality media generation prompts based on user intent.
 
 Guidelines:
 

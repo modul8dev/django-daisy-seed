@@ -5,13 +5,17 @@ from . import views
 app_name = 'media_library'
 
 urlpatterns = [
-    path('create/', views.image_group_create, name='image_group_create'),
-    path('add-url-image/', views.add_url_image, name='add_url_image'),
+    path('create/', views.media_group_create, name='media_group_create'),
+    path('create/', views.media_group_create, name='media_group_create'),
+    path('add-url-media/', views.add_url_media, name='add_url_media'),
     path('import-products/', views.products_import, name='products_import'),
     path('import-url/', views.url_import, name='url_import'),
-    path('image-editor/', views.image_editor_modal, name='image_editor_modal'),
-    path('image-editor/generate/', views.image_editor_generate, name='image_editor_generate'),
-    path('<int:pk>/edit/', views.image_group_edit, name='image_group_edit'),
-    path('<int:pk>/delete/', views.image_group_delete, name='image_group_delete'),
-    path('image-picker/', views.image_picker, name='image_picker'),
+    path('media-editor/', views.media_editor_modal, name='media_editor_modal'),
+    path('media-editor/generate/', views.media_editor_generate, name='media_editor_generate'),
+    path('<int:pk>/edit/', views.media_group_edit, name='media_group_edit'),
+    path('<int:pk>/edit/', views.media_group_edit, name='media_group_edit'),
+    path('<int:pk>/delete/', views.media_group_delete, name='media_group_delete'),
+    path('<int:pk>/delete/', views.media_group_delete, name='media_group_delete'),
+    path('media-picker/', views.media_picker, name='media_picker'),
+    path('media-picker/', views.media_picker, name='media_picker'),
 ]

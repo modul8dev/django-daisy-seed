@@ -15,7 +15,7 @@ def generate_inspiration_task(project_id, user_id, cache_key):
     Stores card data in cache and notifies the user via SSE when done.
     """
     from brand.models import Brand
-    from media_library.models import ImageGroup
+    from media_library.models import MediaGroup
     from services.ai_services import suggest_topic
 
     cards = []
@@ -28,29 +28,29 @@ def generate_inspiration_task(project_id, user_id, cache_key):
             brand = None
 
         product_groups = list(
-            ImageGroup.objects.filter(project_id=project_id, type=ImageGroup.GroupType.PRODUCT)
-            .prefetch_related('images')
+            MediaGroup.objects.filter(project_id=project_id, type=MediaGroup.GroupType.PRODUCT)
+            .prefetch_related('media_items')
         )
 
         if brand and product_groups:
             selected = random.sample(product_groups, min(6, len(product_groups)))
             for group in selected:
-                images = list(group.images.all())
-                seed_images = images[:2]
+                media = list(group.media_items.all())
+                seed_media = media[:2]
                 try:
-                    topics = suggest_topic(brand, seed_images)
+                    topics = suggest_topic(brand, seed_media)
                     topic = topics[0] if topics else ''
                 except Exception:
                     logger.exception('Failed to generate inspiration topic for group %d', group.pk)
                     topic = ''
 
-                first_image = images[0] if images else None
-                seed_image_ids = ','.join(str(img.id) for img in seed_images)
+                first_media = media[0] if media else None
+                seed_media_ids = ','.join(str(img.id) for img in seed_media)
                 cards.append({
                     'group_title': group.title,
-                    'image_id': first_image.id if first_image else None,
+                    'media': first_media.id if first_media else None,
                     'topic': topic,
-                    'seed_image_ids': seed_image_ids,
+                    'seed_media_ids': seed_media_ids,
                 })
     except Exception:
         logger.exception('generate_inspiration_task failed for project %d', project_id)

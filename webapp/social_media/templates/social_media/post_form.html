@@ -106,7 +106,7 @@
                 {{ form.topic.as_hidden }}
                 {{ form.post_type.as_hidden }}
                 {{ form.ai_instruction.as_hidden }}
-                <input type="hidden" name="seed_images_json" id="seed-images-json-input" :value="JSON.stringify(seedImages.map(i => i.imageId))" form="post-form" />
+                <input type="hidden" name="seed_media_json" id="seed-media-json-input" :value="JSON.stringify(seedMedia.map(i => i.media))" form="post-form" />
 
                 {# Validation errors #}
                 {% if form.errors or platform_formset.errors or media_formset.errors %}
@@ -128,12 +128,12 @@
                 {# ═══════════════════════════════════════════════════════════ #}
                 <div x-show="mode === 'ai'" x-cloak class="px-6 py-5 border-b border-zinc-100">
 
-                    {# Seed images #}
+                    {# Seed media #}
                     <div class="mb-5">
-                        <p class="block text-sm font-medium text-zinc-700 mb-3">Seed Images</p>
-                        <p class="text-xs text-zinc-400 mb-2">Select images to provide context for AI generation. These are NOT posted — they inspire the content.</p>
+                        <p class="block text-sm font-medium text-zinc-700 mb-3">Seed Media</p>
+                        <p class="text-xs text-zinc-400 mb-2">Select media to provide context for AI generation. These are NOT posted — they inspire the content.</p>
                         <div class="flex flex-wrap gap-2 mb-3">
-                            <template x-for="(img, idx) in seedImages" :key="img.mediaId">
+                            <template x-for="(img, idx) in seedMedia" :key="img.mediaId">
                                 <div class="relative group cursor-grab active:cursor-grabbing"
                                      draggable="true"
                                      @dragstart="dragStart($event, idx, 'seed')"
@@ -141,7 +141,7 @@
                                      @drop.prevent="drop($event, idx, 'seed')"
                                      @dragend="dragEnd()"
                                      :class="isDragOver(idx, 'seed') ? 'opacity-50 ring-2 ring-indigo-400 rounded-lg' : ''">
-                                    <preview-img :src="img.url" class="h-48 w-48 object-cover rounded-lg border border-zinc-200" ></preview-img>
+                                    <preview-media :src="img.url" :data-is-video="img.is_video ? 'true' : 'false'" class="h-48 w-48 object-cover rounded-lg border border-zinc-200"></preview-media>
                                     <button type="button"
                                             @click="removeSeedImage(img.mediaId)"
                                             class="absolute -top-1.5 -right-1.5 hidden group-hover:flex items-center justify-center bg-red-500 rounded-full w-5 h-5 text-white hover:bg-red-600">
@@ -151,26 +151,26 @@
                                     </button>
                                 </div>
                             </template>
-                            <p x-show="seedImages.length === 0" class="text-xs text-zinc-400 self-center">No seed images selected</p>
+                            <p x-show="seedMedia.length === 0" class="text-xs text-zinc-400 self-center">No seed media selected</p>
                         </div>
                         <button type="button" @click="openPicker('seed')"
                                 class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-indigo-400 hover:text-indigo-600">
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                             </svg>
-                            Add seed images
+                            Add seed media
                         </button>
-                        <a href="{% url 'media_library:image_editor_modal' %}"
+                        <a href="{% url 'media_library:media_editor_modal' %}"
                            up-layer="new"
                            up-mode="modal"
                            up-history="false"
                            up-size="large"
-                           up-class="image-editor"
+                           up-class="media-editor"
                            class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-violet-400 hover:text-violet-600">
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
                             </svg>
-                            Open image editor
+                            Open media editor
                         </a>
                     </div>
 
@@ -321,13 +321,13 @@
 
                         {# Shared media #}
                         <div class="mb-5">
-                            <p class="block text-sm font-medium text-zinc-700 mb-3">Shared Images</p>
+                            <p class="block text-sm font-medium text-zinc-700 mb-3">Shared Media</p>
                             {{ media_formset.management_form }}
                             <div id="shared-media-inputs"></div>
 
                             {# Thumbnail grid #}
                             <div class="flex flex-wrap gap-2 mb-3" id="shared-media-thumbnails">
-                                <template x-for="(img, idx) in sharedImages" :key="img.mediaId">
+                                <template x-for="(img, idx) in sharedMedia" :key="img.mediaId">
                                     <div class="relative group cursor-grab active:cursor-grabbing"
                                          draggable="true"
                                          @dragstart="dragStart($event, idx, 'shared')"
@@ -335,7 +335,7 @@
                                          @drop.prevent="drop($event, idx, 'shared')"
                                          @dragend="dragEnd()"
                                          :class="isDragOver(idx, 'shared') ? 'opacity-50 ring-2 ring-indigo-400 rounded-lg' : ''">
-                                        <preview-img :src="img.url" class="h-48 w-48 object-cover rounded-lg border border-zinc-200" ></preview-img>
+                                        <preview-media :src="img.url" :data-is-video="img.is_video ? 'true' : 'false'" class="h-48 w-48 object-cover rounded-lg border border-zinc-200"></preview-media>
                                         <button type="button"
                                                 @click="removeSharedImage(img.mediaId)"
                                                 class="absolute -top-1.5 -right-1.5 hidden group-hover:flex items-center justify-center bg-red-500 rounded-full w-5 h-5 text-white hover:bg-red-600">
@@ -345,7 +345,7 @@
                                         </button>
                                     </div>
                                 </template>
-                                <p x-show="sharedImages.length === 0" class="text-xs text-zinc-400 self-center">No images added yet</p>
+                                <p x-show="sharedMedia.length === 0" class="text-xs text-zinc-400 self-center">No media added yet</p>
                             </div>
 
                             <button type="button" @click="openPicker('shared')"
@@ -353,7 +353,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                                 </svg>
-                                Add images
+                                Add media
                             </button>
                         </div>
                     </div>
@@ -412,28 +412,28 @@
                         {# ── IMAGES SECTION ── #}
                         <div class="mb-5">
 
-                            {# Images label + use-shared toggle #}
+                            {# Media label + use-shared toggle #}
                             <div class="flex items-center justify-start gap-5 mb-3">
-                                <p class="block text-sm font-medium text-zinc-700">Images</p>
+                                <p class="block text-sm font-medium text-zinc-700">Media</p>
                                 <label class="flex cursor-pointer items-center gap-2" @change="onSharedMediaToggle('{{ platform }}', $event)">
                                     {{ pf.use_shared_media }}
-                                    <span class="text-xs text-zinc-500">Use shared images</span>
+                                    <span class="text-xs text-zinc-500">Use shared media</span>
                                 </label>
                             </div>
 
-                            {# Thumbnail grid — shared images when "use shared" is checked #}
+                            {# Thumbnail grid — shared media when "use shared" is checked #}
                             <div class="flex flex-wrap gap-2 mb-3" x-show="!overrideMediaShown['{{ platform }}']">
-                                <template x-for="img in sharedImages" :key="img.mediaId">
+                                <template x-for="img in sharedMedia" :key="img.mediaId">
                                     <div class="relative">
-                                        <preview-img :src="img.url" class="h-48 w-48 object-cover rounded-lg border border-zinc-200 opacity-60"></preview-img>
+                                        <preview-media :src="img.url" :data-is-video="img.is_video ? 'true' : 'false'" class="h-48 w-48 object-cover rounded-lg border border-zinc-200 opacity-60"></preview-media>
                                     </div>
                                 </template>
-                                <p x-show="sharedImages.length === 0" class="text-xs text-zinc-400 self-center">No shared images yet</p>
+                                <p x-show="sharedMedia.length === 0" class="text-xs text-zinc-400 self-center">No shared media yet</p>
                             </div>
 
-                            {# Thumbnail grid — platform override images when "use shared" is unchecked #}
+                            {# Thumbnail grid — platform override media when "use shared" is unchecked #}
                             <div class="flex flex-wrap gap-2 mb-3" x-show="overrideMediaShown['{{ platform }}']">
-                                <template x-for="(img, idx) in (platformImages['{{ platform }}'] || [])" :key="img.mediaId">
+                                <template x-for="(img, idx) in (platformMedia['{{ platform }}'] || [])" :key="img.mediaId">
                                     <div class="relative group cursor-grab active:cursor-grabbing"
                                          draggable="true"
                                          @dragstart="dragStart($event, idx, 'platform', '{{ platform }}')"
@@ -441,7 +441,7 @@
                                          @drop.prevent="drop($event, idx, 'platform', '{{ platform }}')"
                                          @dragend="dragEnd()"
                                          :class="isDragOver(idx, 'platform', '{{ platform }}') ? 'opacity-50 ring-2 ring-indigo-400 rounded-lg' : ''">
-                                        <preview-img :src="img.url" class="h-48 w-48 object-cover rounded-lg border border-zinc-200"></preview-img>
+                                        <preview-media :src="img.url" :data-is-video="img.is_video ? 'true' : 'false'" class="h-48 w-48 object-cover rounded-lg border border-zinc-200"></preview-media>
                                         <button type="button"
                                                 @click="removePlatformImage('{{ platform }}', img.mediaId)"
                                                 class="absolute -top-1.5 -right-1.5 hidden group-hover:flex items-center justify-center bg-red-500 rounded-full w-5 h-5 text-white hover:bg-red-600">
@@ -451,17 +451,17 @@
                                         </button>
                                     </div>
                                 </template>
-                                <p x-show="!(platformImages['{{ platform }}'] || []).length" class="text-xs text-zinc-400 self-center">No override images</p>
+                                <p x-show="!(platformMedia['{{ platform }}'] || []).length" class="text-xs text-zinc-400 self-center">No override media</p>
                             </div>
 
-                            {# Add images button — only when override is active #}
+                            {# Add media button — only when override is active #}
                             <button type="button" @click="openPicker('platform:{{ platform }}')"
                                     x-show="overrideMediaShown['{{ platform }}']"
                                     class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 hover:border-indigo-400 hover:text-indigo-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                                 </svg>
-                                Add images
+                                Add media
                             </button>
                         </div>
                     </div>
@@ -487,8 +487,8 @@
                     <div class="flex items-center justify-between px-3 pt-3 pb-2">
                         <div class="flex items-center gap-2.5 min-w-0">
                             {# Brand avatar #}
-                            {% if brand and brand.logo and brand.logo.images.exists %}
-                            <img src="{{ brand.logo.images.first.url }}" class="h-9 w-9 rounded-full object-cover ring-1 ring-zinc-100 shrink-0" />
+                            {% if brand and brand.logo and brand.logo.media_items.exists %}
+                            <img src="{{ brand.logo.media_items.first.url }}" class="h-9 w-9 rounded-full object-cover ring-1 ring-zinc-100 shrink-0" />
                             {% else %}
                             <div class="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
                                 <span class="text-xs font-bold text-indigo-500">{{ brand.name|first|default:"B"|upper }}</span>
@@ -508,26 +508,26 @@
                     </div>
 
                     {# Media carousel #}
-                    <div class="relative bg-zinc-50 border-y border-zinc-100 select-none" x-show="previewImages().length > 0"
+                    <div class="relative bg-zinc-50 border-y border-zinc-100 select-none" x-show="previewMedia().length > 0"
                          style="aspect-ratio: 1 / 1;"
                          @mouseenter="carouselHover = true" @mouseleave="carouselHover = false">
 
                         {# Slides #}
-                        <template x-for="(img, idx) in previewImages()" :key="img.mediaId">
+                        <template x-for="(img, idx) in previewMedia()" :key="img.mediaId">
                             <div x-show="carouselIndex === idx" class="absolute inset-0">
-                                <preview-img :src="img.url" class="w-full h-full object-cover"></preview-img>
+                                <preview-media :src="img.url" :data-is-video="img.is_video ? 'true' : 'false'" class="w-full h-full object-cover"></preview-media>
                             </div>
                         </template>
 
                         {# Counter badge #}
-                        <div x-show="previewImages().length > 1"
+                        <div x-show="previewMedia().length > 1"
                              class="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-medium rounded-full px-1.5 py-0.5 leading-none"
-                             x-text="(carouselIndex + 1) + ' / ' + previewImages().length">
+                             x-text="(carouselIndex + 1) + ' / ' + previewMedia().length">
                         </div>
 
                         {# Prev arrow #}
                         <button type="button" tabindex="-1" aria-hidden="true"
-                                x-show="previewImages().length > 1 && carouselHover && carouselIndex > 0"
+                                x-show="previewMedia().length > 1 && carouselHover && carouselIndex > 0"
                                 @click="carouselIndex--"
                                 class="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1 shadow transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -536,7 +536,7 @@
                         </button>
                         {# Next arrow #}
                         <button type="button" tabindex="-1" aria-hidden="true"
-                                x-show="previewImages().length > 1 && carouselHover && carouselIndex < previewImages().length - 1"
+                                x-show="previewMedia().length > 1 && carouselHover && carouselIndex < previewMedia().length - 1"
                                 @click="carouselIndex++"
                                 class="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1 shadow transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -545,9 +545,9 @@
                         </button>
 
                         {# Dot pagination #}
-                        <div x-show="previewImages().length > 1"
+                        <div x-show="previewMedia().length > 1"
                              class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                            <template x-for="(img, idx) in previewImages()" :key="idx">
+                            <template x-for="(img, idx) in previewMedia()" :key="idx">
                                 <button type="button" tabindex="-1" aria-hidden="true"
                                         @click="carouselIndex = idx"
                                         :class="carouselIndex === idx ? 'bg-white scale-110' : 'bg-white/50'"
@@ -594,7 +594,7 @@
                 </div>{# /preview card #}
             </div>
 
-            {# Character / image counters #}
+            {# Character / media counters #}
             {% if enabled_platforms %}
             <div class="mt-6 space-y-3" id="platform-counters">
                 {% for platform in enabled_platforms %}
@@ -627,7 +627,7 @@
 {# ── JSON data for Alpine state ── #}
 {{ selected_shared_media|json_script:"selected-shared-media-json" }}
 {{ selected_platform_media|json_script:"selected-platform-media-json" }}
-{{ selected_seed_images|json_script:"selected-seed-images-json" }}
+{{ selected_seed_media|json_script:"selected-seed-media-json" }}
 {% if prefill_topic %}<script type="application/json" id="prefill-topic-json">{{ prefill_topic }}</script>{% endif %}
 {% if prefill_mode %}<script type="application/json" id="prefill-mode-json">{{ prefill_mode }}</script>{% endif %}
 

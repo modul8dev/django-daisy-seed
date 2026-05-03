@@ -12,8 +12,8 @@ from credits.constants import IMAGE_GENERATION_COST
 from credits.models import available_credits, spend_credits
 
 from brand.models import Brand
-from media_library.models import Image, ImageGroup
-from services.ai_services import suggest_topic, generate_post_text, generate_post_image, edit_text
+from media_library.models import Media, MediaGroup
+from services.ai_services import suggest_topic, generate_post_text, generate_post_media, edit_text
 from .forms import (
     SharedMediaFormSet,
     SocialMediaPostForm,
@@ -34,13 +34,13 @@ def _accept_layer_response():
     return HttpResponse(status=204)
 
 
-def _build_image_groups_data(project):
-    groups = ImageGroup.objects.filter(project=project).prefetch_related('images')
+def _build_media_groups_data(project):
+    groups = MediaGroup.objects.filter(project=project).prefetch_related('media_items')
     return [
         {
             'id': g.id,
             'title': g.title,
-            'images': [{'id': img.id, 'url': img.url} for img in g.images.all()],
+            'media': [{'id': m.id, 'url': m.url, 'is_video': m.is_video} for m in g.media_items.all()],
         }
         for g in groups
     ]
@@ -53,32 +53,32 @@ def _save_platform_override_media(request, post):
     except (json.JSONDecodeError, ValueError):
         return
     for platform_variant in post.platforms.all():
-        images_data = data.get(platform_variant.platform)
-        if images_data is None:
+        media_data = data.get(platform_variant.platform)
+        if media_data is None:
             continue
         platform_variant.override_media.all().delete()
-        for sort_order, item in enumerate(images_data):
-            image_id = item.get('image_id')
-            if image_id:
+        for sort_order, item in enumerate(media_data):
+            media = item.get('media')
+            if media:
                 SocialMediaPlatformMedia.objects.create(
                     platform_variant=platform_variant,
-                    image_id=image_id,
+                    media=media,
                     sort_order=sort_order,
                 )
 
 
-def _save_seed_images(request, post):
-    raw = request.POST.get('seed_images_json', '[]')
+def _save_seed_media(request, post):
+    raw = request.POST.get('seed_media_json', '[]')
     try:
-        image_ids = json.loads(raw)
+        media_ids = json.loads(raw)
     except (json.JSONDecodeError, ValueError):
         return
-    post.seed_images.all().delete()
-    for sort_order, image_id in enumerate(image_ids):
-        if image_id:
+    post.seed_media.all().delete()
+    for sort_order, media_id in enumerate(media_ids):
+        if media_id:
             SocialMediaPostSeedImage.objects.create(
                 post=post,
-                image_id=image_id,
+                media_id=media_id,
                 sort_order=sort_order,
             )
 
@@ -101,7 +101,7 @@ def _make_platform_formset(extra=0):
 def post_list(request):
     posts = list(
         SocialMediaPost.objects.filter(project=request.project)
-        .prefetch_related('platforms', 'shared_media__image')
+        .prefetch_related('platforms', 'shared_media__media')
     )
     for post in posts:
         all_media = list(post.shared_media.all())
@@ -113,7 +113,7 @@ def post_list(request):
 @login_required
 def post_create(request):
     enabled_platforms = request.project.get_enabled_platforms()
-    user_images = Image.objects.filter(image_group__project=request.project).select_related('image_group')
+    user_media = Media.objects.filter(media_group__project=request.project).select_related('media_group')
 
     if request.method == 'POST':
         form = SocialMediaPostForm(request.POST)
@@ -133,7 +133,7 @@ def post_create(request):
             media_formset.instance = post
             media_formset.save()
             _save_platform_override_media(request, post)
-            _save_seed_images(request, post)
+            _save_seed_media(request, post)
             return _accept_layer_response()
     else:
         form = SocialMediaPostForm()
@@ -146,9 +146,9 @@ def post_create(request):
         )
         media_formset = SharedMediaFormSet(prefix='media', instance=SocialMediaPost())
 
-    # Adjust image queryset on media forms
+    # Adjust media queryset on media forms
     for mf in media_formset.forms:
-        mf.fields['image'].queryset = user_images
+        mf.fields['media'].queryset = user_media
 
     platform_labels = {p: _get_platform_label(p) for p in enabled_platforms}
     brand = _get_project_brand(request.project)
@@ -156,14 +156,14 @@ def post_create(request):
     # Support prefill from query params (used by inspiration cards)
     prefill_topic = request.GET.get('topic', '')
     prefill_mode = request.GET.get('mode', '')
-    prefill_seed_image_ids_raw = request.GET.get('seed_image_ids', '')
-    prefill_seed_images = []
-    if prefill_seed_image_ids_raw:
+    prefill_seed_media_ids_raw = request.GET.get('seed_media_ids', '')
+    prefill_seed_media = []
+    if prefill_seed_media_ids_raw:
         try:
-            id_list = [int(x) for x in prefill_seed_image_ids_raw.split(',') if x.strip()]
-            prefill_seed_images = [
-                {'image_id': img.id, 'url': img.url}
-                for img in Image.objects.filter(id__in=id_list, image_group__project=request.project)
+            id_list = [int(x) for x in prefill_seed_media_ids_raw.split(',') if x.strip()]
+            prefill_seed_media = [
+                {'media': m.id, 'url': m.url, 'is_video': m.is_video}
+                for m in Media.objects.filter(id__in=id_list, media_group__project=request.project)
             ]
         except (ValueError, TypeError):
             pass
@@ -174,10 +174,10 @@ def post_create(request):
         'media_formset': media_formset,
         'enabled_platforms': enabled_platforms,
         'platform_labels': platform_labels,
-        'user_images': user_images,
+        'user_media': user_media,
         'selected_shared_media': [],
         'selected_platform_media': {},
-        'selected_seed_images': prefill_seed_images if prefill_seed_images else [],
+        'selected_seed_media': prefill_seed_media if prefill_seed_media else [],
         'brand': brand,
         'is_edit': False,
         'prefill_topic': prefill_topic,
@@ -188,7 +188,7 @@ def post_create(request):
 @login_required
 def post_edit(request, pk):
     post = get_object_or_404(SocialMediaPost, pk=pk, project=request.project)
-    user_images = Image.objects.filter(image_group__project=request.project).select_related('image_group')
+    user_media = Media.objects.filter(media_group__project=request.project).select_related('media_group')
 
     PlatformFormSet = _make_platform_formset(extra=0)
     if request.method == 'POST':
@@ -205,7 +205,7 @@ def post_edit(request, pk):
             platform_formset.save()
             media_formset.save()
             _save_platform_override_media(request, post)
-            _save_seed_images(request, post)
+            _save_seed_media(request, post)
             return _accept_layer_response()
     else:
         form = SocialMediaPostForm(instance=post)
@@ -213,25 +213,25 @@ def post_edit(request, pk):
         media_formset = SharedMediaFormSet(instance=post, prefix='media')
 
     for mf in media_formset.forms:
-        mf.fields['image'].queryset = user_images
+        mf.fields['media'].queryset = user_media
 
     enabled_platforms = [p.platform for p in post.platforms.all()]
     platform_labels = {p: _get_platform_label(p) for p in enabled_platforms}
 
     selected_shared_media = [
-        {'media_id': m.id, 'image_id': m.image_id, 'url': m.image.url}
+        {'media_id': m.id, 'media': m.media.id, 'url': m.media.url, 'is_video': m.media.is_video}
         for m in post.shared_media.order_by('sort_order')
     ]
     platform_override_media = {}
-    for pv in post.platforms.prefetch_related('override_media__image').all():
+    for pv in post.platforms.prefetch_related('override_media__media').all():
         platform_override_media[pv.platform] = [
-            {'media_id': m.id, 'image_id': m.image_id, 'url': m.image.url}
+            {'media_id': m.id, 'media': m.media.id, 'url': m.media.url, 'is_video': m.media.is_video}
             for m in pv.override_media.order_by('sort_order')
         ]
 
-    selected_seed_images = [
-        {'image_id': s.image_id, 'url': s.image.url}
-        for s in post.seed_images.select_related('image').order_by('sort_order')
+    selected_seed_media = [
+        {'media': s.media.id, 'url': s.media.url, 'is_video': s.media.is_video}
+        for s in post.seed_media.select_related('media').order_by('sort_order')
     ]
 
     return render(request, 'social_media/post_form.html', {
@@ -240,10 +240,10 @@ def post_edit(request, pk):
         'media_formset': media_formset,
         'enabled_platforms': enabled_platforms,
         'platform_labels': platform_labels,
-        'user_images': user_images,
+        'user_media': user_media,
         'selected_shared_media': selected_shared_media,
         'selected_platform_media': platform_override_media,
-        'selected_seed_images': selected_seed_images,
+        'selected_seed_media': selected_seed_media,
         'brand': _get_project_brand(request.project),
         'post': post,
         'is_edit': True,
@@ -289,16 +289,16 @@ def ai_suggest_topic(request):
     if not brand:
         return JsonResponse({'error': 'Brand not configured'}, status=400)
 
-    seed_image_ids = data.get('seed_image_ids', [])
-    seed_images = list(
-        Image.objects.filter(
-            id__in=seed_image_ids,
-            image_group__project=request.project,
+    seed_media_ids = data.get('seed_media_ids', [])
+    seed_media = list(
+        Media.objects.filter(
+            id__in=seed_media_ids,
+            media_group__project=request.project,
         )
-    ) if seed_image_ids else []
+    ) if seed_media_ids else []
 
     try:
-        topics = suggest_topic(brand, seed_images)
+        topics = suggest_topic(brand, seed_media)
         return JsonResponse({'topics': topics})
     except Exception:
         logger.exception('Failed to suggest topic')
@@ -319,16 +319,16 @@ def ai_generate(request):
     topic = data.get('topic', '')
     post_type = data.get('post_type', '')
     platforms = data.get('platforms', [])
-    seed_image_ids = data.get('seed_image_ids', [])
+    seed_media_ids = data.get('seed_media_ids', [])
 
-    seed_images = list(
-        Image.objects.filter(
-            id__in=seed_image_ids,
-            image_group__project=request.project,
+    seed_media = list(
+        Media.objects.filter(
+            id__in=seed_media_ids,
+            media_group__project=request.project,
         )
-    ) if seed_image_ids else []
+    ) if seed_media_ids else []
 
-    # Check credits before image generation
+    # Check credits before media generation
     if available_credits(request.user) < IMAGE_GENERATION_COST:
         return JsonResponse(
             {'error': 'Insufficient credits', 'credits_required': IMAGE_GENERATION_COST},
@@ -338,18 +338,18 @@ def ai_generate(request):
     result = {}
 
     try:
-        result['text'] = generate_post_text(brand, topic, post_type, seed_images, platforms)
+        result['text'] = generate_post_text(brand, topic, post_type, seed_media, platforms)
     except Exception:
         logger.exception('Failed to generate post text')
         return JsonResponse({'error': 'Failed to generate text'}, status=500)
 
     try:
-        image = generate_post_image(brand, topic, post_type, seed_images, request.user, project=request.project)
-        if image:
-            spend_credits(request.user, IMAGE_GENERATION_COST, 'Post image generation')
-            result['image'] = {'id': image.id, 'url': image.url}
+        media = generate_post_media(brand, topic, post_type, seed_media, request.user, project=request.project)
+        if media:
+            spend_credits(request.user, IMAGE_GENERATION_COST, 'Post media generation')
+            result['media'] = {'id': media.id, 'url': media.url}
     except Exception:
-        logger.exception('Failed to generate image (text was generated successfully)')
+        logger.exception('Failed to generate media (text was generated successfully)')
         # Non-fatal: text was already generated
 
     return JsonResponse(result)

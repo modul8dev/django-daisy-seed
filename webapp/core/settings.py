@@ -160,7 +160,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
+# Static files (CSS, JavaScript, Media)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
@@ -261,7 +261,7 @@ EVENTSTREAM_REDIS = {
 }
 
 # ─── Site / Campaign agents ───────────────────────────────────────────────────
-# Public-facing base URL — used by agents to build absolute image URLs.
+# Public-facing base URL — used by agents to build absolute media URLs.
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
 # Unsplash API access key — https://unsplash.com/developers
 UNSPLASH_ACCESS_KEY = os.environ.get('UNSPLASH_ACCESS_KEY', '')

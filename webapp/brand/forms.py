@@ -1,6 +1,6 @@
 from django import forms
 
-from media_library.models import ImageGroup
+from media_library.models import MediaGroup
 
 from .models import Brand
 
@@ -8,9 +8,9 @@ class BrandForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         if project is not None:
-            self.fields['logo'].queryset = ImageGroup.objects.filter(project=project)
+            self.fields['logo'].queryset = MediaGroup.objects.filter(project=project)
         else:
-            self.fields['logo'].queryset = ImageGroup.objects.none()
+            self.fields['logo'].queryset = MediaGroup.objects.none()
         self.fields['logo'].required = False
         self.fields['logo'].empty_label = '— None —'
         self.fields['logo'].widget.attrs.update({'class': 'select select-bordered w-full'})

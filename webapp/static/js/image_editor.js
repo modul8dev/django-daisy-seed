@@ -3,14 +3,14 @@
 document.addEventListener('alpine:init', () => {
   'use strict';
 
-  Alpine.data('imageEditor', () => ({
+  Alpine.data('mediaEditor', () => ({
     // ── State ──────────────────────────────────────────────────────────────
-    attachedImages: [],   // [{id, badge, url}]  — images sent to the AI
+    attachedMedia: [],   // [{id, badge, url}]  — media sent to the AI
     nextBadge: 1,
     prompt: '',
     generating: false,
     currentResult: null,   // {id, url, prompt} — most recent generation
-    imageHistory: [],      // [{id, url}] — all images used in sessions (inputs + generated), newest first
+    mediaHistory: [],      // [{id, url}] — all media used in sessions (inputs + generated), newest first
     generatedHistory: [],  // [{id, url}] — only AI-generated results, newest first
     promptHistory: [],     // [string] — all used prompts, newest first, dedup'd
     groupId: null,
@@ -25,27 +25,27 @@ document.addEventListener('alpine:init', () => {
         generateUrl: root.dataset.generateUrl || '',
       };
 
-      // Pre-load source image into input area (single image edit mode)
+      // Pre-load source media into input area (single media edit mode)
       try {
         const src = JSON.parse(root.dataset.sourceImage || 'null');
         if (src && src.id && src.url) {
-          this.attachedImages = [{ id: src.id, badge: this.nextBadge++, url: src.url }];
+          this.attachedMedia = [{ id: src.id, badge: this.nextBadge++, url: src.url }];
         }
       } catch (_) { /* ignore */ }
 
-      // Pre-populate Quick Access from group images
+      // Pre-populate Quick Access from group media
       try {
-        const quickAccess = JSON.parse(root.dataset.quickAccessImages || '[]');
+        const quickAccess = JSON.parse(root.dataset.quickAccessMedia || '[]');
         if (Array.isArray(quickAccess) && quickAccess.length > 0) {
-          this.imageHistory = quickAccess.map(img => ({ id: img.id, url: img.url }));
+          this.mediaHistory = quickAccess.map(img => ({ id: img.id, url: img.url }));
         }
       } catch (_) { /* ignore */ }
 
-      // Pre-load group id so generated images are saved to the same group
+      // Pre-load group id so generated media are saved to the same group
       const groupId = root.dataset.groupId;
       if (groupId) this.groupId = parseInt(groupId, 10);
 
-      // Listen for image picker acceptance
+      // Listen for media picker acceptance
       this._pickerHandler = (event) => {
         if (event.value && event.value.target === '_editor') {
           this.pickerAccepted(event.value);
@@ -61,22 +61,22 @@ document.addEventListener('alpine:init', () => {
     // ── Picker ─────────────────────────────────────────────────────────────
 
     openPicker() {
-      const selectedIds = this.attachedImages.map(i => i.id).join(',');
+      const selectedIds = this.attachedMedia.map(i => i.id).join(',');
       up.layer.open({
         url: `${this._config.pickerUrl}?target=_editor&selected=${selectedIds}`,
-        target: '#image-picker',
+        target: '#media-picker',
         mode: 'modal',
         history: false,
         size: 'large',
       });
     },
 
-    pickerAccepted({ imageIds, urls }) {
-      const existingIds = new Set(this.attachedImages.map(i => i.id));
-      imageIds.forEach(id => {
+    pickerAccepted({ mediaIds, urls }) {
+      const existingIds = new Set(this.attachedMedia.map(i => i.id));
+      mediaIds.forEach(id => {
         if (!existingIds.has(id)) {
-          this.attachedImages = [
-            ...this.attachedImages,
+          this.attachedMedia = [
+            ...this.attachedMedia,
             { id, badge: this.nextBadge++, url: urls[id] },
           ];
         }
@@ -84,7 +84,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     removeAttachment(id) {
-      this.attachedImages = this.attachedImages.filter(i => i.id !== id);
+      this.attachedMedia = this.attachedMedia.filter(i => i.id !== id);
     },
 
     // ── History actions ────────────────────────────────────────────────────
@@ -94,12 +94,12 @@ document.addEventListener('alpine:init', () => {
       this.prompt = p;
     },
 
-    // Add a previously generated image back into the input area (dedup)
+    // Add a previously generated media back into the input area (dedup)
     addFromHistory(img) {
-      const existingIds = new Set(this.attachedImages.map(i => i.id));
+      const existingIds = new Set(this.attachedMedia.map(i => i.id));
       if (!existingIds.has(img.id)) {
-        this.attachedImages = [
-          ...this.attachedImages,
+        this.attachedMedia = [
+          ...this.attachedMedia,
           { id: img.id, badge: this.nextBadge++, url: img.url },
         ];
       }
@@ -124,7 +124,7 @@ document.addEventListener('alpine:init', () => {
           },
           body: JSON.stringify({
             prompt: this.prompt,
-            attachment_ids: this.attachedImages.map(i => i.id),
+            attachment_ids: this.attachedMedia.map(i => i.id),
             group_id: this.groupId,
           }),
         });
@@ -136,24 +136,24 @@ document.addEventListener('alpine:init', () => {
           return;
         }
 
-        const img = { id: data.image.id, url: data.image.url };
+        const img = { id: data.media.id, url: data.media.url };
         this.currentResult = { ...img, prompt: this.prompt };
         this.groupId = data.group_id;
 
-        // Move old input images into quick access (dedup)
-        const existingHistoryIds = new Set(this.imageHistory.map(h => h.id));
-        const incoming = this.attachedImages
+        // Move old input media into quick access (dedup)
+        const existingHistoryIds = new Set(this.mediaHistory.map(h => h.id));
+        const incoming = this.attachedMedia
           .filter(i => !existingHistoryIds.has(i.id))
           .map(i => ({ id: i.id, url: i.url }));
-        this.imageHistory = [...incoming, ...this.imageHistory];
+        this.mediaHistory = [...incoming, ...this.mediaHistory];
 
-        // Replace input images with the freshly generated result
-        this.attachedImages = [{ id: img.id, badge: 1, url: img.url }];
+        // Replace input media with the freshly generated result
+        this.attachedMedia = [{ id: img.id, badge: 1, url: img.url }];
         this.nextBadge = 2;
 
-        // Add generated image to quick access (dedup)
-        if (!this.imageHistory.some(h => h.id === img.id)) {
-          this.imageHistory = [img, ...this.imageHistory];
+        // Add generated media to quick access (dedup)
+        if (!this.mediaHistory.some(h => h.id === img.id)) {
+          this.mediaHistory = [img, ...this.mediaHistory];
         }
 
         // Track in generated-only history (dedup)
@@ -182,8 +182,8 @@ document.addEventListener('alpine:init', () => {
       if (!this.currentResult) return;
       up.layer.accept({
         value: {
-          imageId: this.currentResult.id,
-          imageUrl: this.currentResult.url,
+          media: this.currentResult.id,
+          media: this.currentResult.url,
         },
       });
     },

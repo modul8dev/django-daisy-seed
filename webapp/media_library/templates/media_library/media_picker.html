@@ -9,6 +9,7 @@
     {{ selected_ids|json_script:"picker-selected-ids" }}
     <input type="hidden" id="picker-target" value="{{ target }}">
     <input type="hidden" id="picker-max-media" value="{{ max_media }}">
+    <input type="hidden" id="picker-allow-video" value="{{ allow_video|yesno:'1,0' }}">
 
     {# Header #}
     <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 shrink-0">
@@ -69,18 +70,13 @@
                          :class="currentGroupId === group.id
                              ? 'border-indigo-500 ring-2 ring-indigo-100'
                              : 'border-zinc-200 hover:border-indigo-300'">
-                        {# Group cover: media #}
+                        {# Group cover #}
                         <div class="relative aspect-video w-full bg-zinc-100 overflow-hidden shrink-0">
                             <template x-if="group.media.length > 0 && !group.media[0].is_video">
                                 <img :src="group.media[0].url" class="w-full h-full object-cover" loading="lazy"/>
                             </template>
                             <template x-if="group.media.length > 0 && group.media[0].is_video">
-                                <div class="relative w-full h-full">
-                                    <video :src="group.media[0].url" class="w-full h-full object-cover" muted preload="metadata"></video>
-                                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="size-6 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                    </div>
-                                </div>
+                                <video :src="group.media[0].url" class="w-full h-full object-cover" muted preload="metadata" playsinline></video>
                             </template>
                             <div x-show="groupHasSelected(group)"
                                  class="absolute inset-0 bg-indigo-500/20 flex items-end justify-end p-1">
@@ -106,7 +102,7 @@
                         <div class="px-3 py-2.5 flex items-start justify-between gap-1">
                             <div class="min-w-0">
                                 <p class="text-sm font-medium text-zinc-900 truncate" x-text="group.title"></p>
-                                <p class="text-xs text-zinc-400 mt-0.5" x-text="group.media.length + ' item' + (group.media.length !== 1 ? 's' : '')"></p>
+                                <p class="text-xs text-zinc-400 mt-0.5" x-text="groupAllowedMedia(group).length + ' item' + (groupAllowedMedia(group).length !== 1 ? 's' : '')"></p>
                             </div>
                             <button type="button"
                                     @click.stop="editGroup(group.id)"
@@ -122,11 +118,12 @@
             </div>
         </div>
 
-        {# Right: Image thumbnails sidebar #}
+        {# Right: Media thumbnails sidebar #}
         <div class="w-56 shrink-0 border-l border-zinc-200 flex flex-col overflow-hidden">
             {# Sidebar header: selected-only toggle #}
             <div class="flex items-center justify-between px-3 py-2 border-b border-zinc-100 bg-zinc-50 shrink-0">
-                <p x-text="showSelectedOnly ? 'Selected' : (currentGroupId ? currentGroupTitle() : 'Media')"></p>
+                <p class="text-xs font-medium text-zinc-500 truncate"
+                   x-text="showSelectedOnly ? 'Selected' : (currentGroupId ? currentGroupTitle() : 'Media')"></p>
                 <button type="button"
                         @click="showSelectedOnly = !showSelectedOnly"
                         title="Show selected media"
@@ -143,7 +140,7 @@
                  class="flex flex-1 items-center justify-center p-4">
                 <p class="text-xs text-zinc-400 text-center">Click a group to browse its media</p>
             </div>
-            {# Image grid #}
+            {# Media grid #}
             <div x-show="showSelectedOnly || currentGroupId" class="overflow-y-auto flex-1 p-3">
                 <div class="grid grid-cols-3 gap-1.5">
                     <template x-for="img in sidebarMedia()" :key="img.id">
@@ -157,12 +154,7 @@
                                 <img :src="img.url" class="w-full h-full object-cover" />
                             </template>
                             <template x-if="img.is_video">
-                                <div class="relative w-full h-full bg-zinc-900">
-                                    <video :src="img.url" class="w-full h-full object-cover" muted preload="metadata"></video>
-                                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                    </div>
-                                </div>
+                                <video :src="img.url" class="w-full h-full object-cover" muted preload="metadata" playsinline></video>
                             </template>
                             <div x-show="isSelected(img.id)"
                                  class="absolute inset-0 bg-indigo-500/20 flex items-end justify-end p-0.5">
@@ -176,7 +168,7 @@
                     </template>
                     <p x-show="sidebarMedia().length === 0"
                        class="col-span-3 text-xs text-zinc-400 py-2 text-center"
-                       x-text="showSelectedOnly ? 'No items selected.' : 'No items in this group.'"></p>
+                       x-text="showSelectedOnly ? 'No media selected.' : (allowVideo ? 'No media in this group.' : 'No media in this group.')"></p>
                 </div>
             </div>
         </div>

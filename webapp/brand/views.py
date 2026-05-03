@@ -9,10 +9,9 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from media_library.models import Image, ImageGroup
-from media_library.views import _detect_and_import_products, _import_url_images
+from media_library.models import Media, MediaGroup
+from media_library.views import _detect_and_import_products, _import_url_media
 
-from media_library.models import ImageGroup
 from .forms import BrandForm, ScrapeURLForm
 from .models import Brand
 
@@ -42,22 +41,22 @@ def _decode_svg_data_uri(data_uri):
         return None
 
 
-def _create_logo_image_group(user, project, logo_url, brand_name):
-    """Create an ImageGroup containing the logo URL. Returns the group or None."""
+def _create_logo_media_group(user, project, logo_url, brand_name):
+    """Create a MediaGroup containing the logo URL. Returns the group or None."""
     from django.core.files.base import ContentFile
 
     try:
-        group = ImageGroup.objects.create(
+        group = MediaGroup.objects.create(
             user=user,
             project=project,
             title=f'{brand_name} Logo' if brand_name else 'Brand Logo',
-            type=ImageGroup.GroupType.MANUAL,
+            type=MediaGroup.GroupType.MANUAL,
         )
-        img = Image(image_group=group)
+        img = Media(media_group=group)
         svg_bytes = _decode_svg_data_uri(logo_url)
         if svg_bytes is not None:
             filename = f'logo_{uuid.uuid4().hex}.svg'
-            img.image.save(filename, ContentFile(svg_bytes), save=True)
+            img.file.save(filename, ContentFile(svg_bytes), save=True)
         else:
             img.external_url = logo_url
             img.save()
@@ -73,7 +72,7 @@ def _scrape_brand_data(user, project, url):
       2. LLM selects the 5-7 pages most relevant to brand identity.
       3. Batch-scrape those pages for markdown content.
       4. Feed combined markdown into OpenAI for structured brand extraction.
-    Also imports website images and handles Shopify/WooCommerce product discovery.
+    Also imports website media and handles Shopify/WooCommerce product discovery.
     Returns (success: bool, error: str | None).
     """
     firecrawl_key = os.environ.get('FIRECRAWL_API_KEY', '')
@@ -134,9 +133,9 @@ def _scrape_brand_data(user, project, url):
                 return obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
 
             # Logo
-            images = _bg(branding, 'images')
-            if images:
-                logo_url = _bg(images, 'logo')
+            media = _bg(branding, 'media')
+            if media:
+                logo_url = _bg(media, 'logo')
 
             # Colors
             colors = _bg(branding, 'colors')
@@ -173,7 +172,7 @@ def _scrape_brand_data(user, project, url):
             selected_urls,
             formats=['markdown'],
             only_main_content=True,
-            poll_interval=5,
+            poll_interval=2,
             wait_timeout=120,
         )
         pages = getattr(batch_result, 'data', None) or []
@@ -221,10 +220,10 @@ def _scrape_brand_data(user, project, url):
     if branding_secondary_color:
         brand_secondary_color = branding_secondary_color
 
-    # ── Create logo ImageGroup ───────────────────────────────────────────────
+    # ── Create logo MediaGroup ───────────────────────────────────────────────
     logo_group = None
     if logo_url:
-        logo_group = _create_logo_image_group(user, project, logo_url, brand_name)
+        logo_group = _create_logo_media_group(user, project, logo_url, brand_name)
 
     # ── Save brand data ──────────────────────────────────────────────────────
     brand, _ = Brand.objects.get_or_create(project=project, defaults={'user': user})
@@ -261,18 +260,18 @@ def brand_detail(request):
     else:
         form = BrandForm(instance=brand, project=request.project)
 
-    # Preview URL and image ID for the logo field (reflects current form value, not just saved brand).
+    # Preview URL and media ID for the logo field (reflects current form value, not just saved brand).
     logo_preview_url = ''
-    logo_image_id = ''
+    logo_media_id = ''
     logo_value = form['logo'].value()
     if logo_value:
         try:
-            group = ImageGroup.objects.prefetch_related('images').get(pk=logo_value)
-            first_img = group.images.first()
+            group = MediaGroup.objects.prefetch_related('media_items').get(pk=logo_value)
+            first_img = group.media_items.first()
             if first_img:
                 logo_preview_url = first_img.url
-                logo_image_id = str(first_img.pk)
-        except (ImageGroup.DoesNotExist, ValueError):
+                logo_media_id = str(first_img.pk)
+        except (MediaGroup.DoesNotExist, ValueError):
             pass
 
     return render(request, 'brand/brand_detail.html', {
@@ -280,7 +279,7 @@ def brand_detail(request):
         'form': form,
         'edit_mode': edit_mode,
         'logo_preview_url': logo_preview_url,
-        'logo_image_id': logo_image_id,
+        'logo_media_id': logo_media_id,
     })
 
 

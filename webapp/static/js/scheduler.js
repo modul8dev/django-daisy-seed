@@ -84,7 +84,7 @@ function schedulerApp() {
                     }
                     html += '</div>';
 
-                    // Full-width image
+                    // Full-width media
                     if (props.thumbnail) {
                         html += '<div class="scheduler-event-thumb">'
                             + '<img src="' + self.escapeHtml(props.thumbnail) + '" alt="">'

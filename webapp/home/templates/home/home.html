@@ -44,7 +44,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <h3 class="text-sm font-semibold text-zinc-900">Import your products</h3>
-                    <p class="mt-1 text-sm text-zinc-600" x-show="!isImporting">Import product images to use as inspiration for AI-generated posts.</p>
+                    <p class="mt-1 text-sm text-zinc-600" x-show="!isImporting">Import product media to use as inspiration for AI-generated posts.</p>
                     <p class="mt-1 text-sm text-zinc-600" x-show="isImporting" style="display:none">Importing products &mdash; this may take a moment&hellip;</p>
                     <a x-show="!isImporting" href="{% url 'media_library:products_import' %}"
                        up-layer="new" up-mode="modal" up-history="false"
@@ -89,7 +89,7 @@
                 {% with first_media=post.shared_media.first %}
                 {% if first_media %}
                 <div class="h-32 bg-zinc-100 overflow-hidden">
-                    <img src="{{ first_media.image.url }}" alt="" class="w-full h-full object-cover" loading="lazy">
+                    <img src="{{ first_media.media.url }}" alt="" class="w-full h-full object-cover" loading="lazy">
                 </div>
                 {% else %}
                 <div class="h-32 flex items-center justify-center bg-zinc-50 text-zinc-300">

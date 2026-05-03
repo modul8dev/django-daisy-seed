@@ -110,7 +110,7 @@
                      groupId: '{{ form.logo.value|default:'' }}',
                      previewUrl: '{{ logo_preview_url|escapejs }}',
                      onLogoPicked(val) {
-                         const imgId = val.imageIds && val.imageIds[0];
+                         const imgId = val.mediaIds && val.mediaIds[0];
                          this.groupId = imgId ? String(val.groupMap[imgId]) : '';
                          this.previewUrl = imgId ? (val.urls[imgId] || '') : '';
                      },
@@ -130,11 +130,11 @@
                         </template>
                     </div>
                     <div class="flex flex-col gap-2">
-                        <a href="{% url 'media_library:image_picker' %}?target=logo{% if logo_image_id %}&selected={{ logo_image_id }}{% endif %}&max=1"
+                        <a href="{% url 'media_library:media_picker' %}?target=logo{% if logo_media_id %}&selected={{ logo_media_id }}{% endif %}&max=1"
                            class="btn btn-sm btn-outline"
                            up-layer="new"
                            up-mode="modal"
-                           up-target="#image-picker"
+                           up-target="#media-picker"
                            up-history="false"
                            up-size="large"
                            up-on-accepted="this.dispatchEvent(new CustomEvent('brand:logo-picked', { bubbles: true, detail: value }))">
@@ -150,7 +150,7 @@
             </div>
             {% else %}
             <div class="mb-5">
-                {% with logo_img=brand.logo.images.first %}
+                {% with logo_img=brand.logo.media_items.first %}
                 {% if logo_img %}
                 <img src="{{ logo_img.url }}" alt="Brand logo"
                      class="h-20 w-auto object-contain rounded-lg border border-zinc-100 bg-zinc-50 p-2">

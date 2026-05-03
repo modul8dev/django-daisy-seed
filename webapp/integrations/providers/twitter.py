@@ -38,7 +38,7 @@ class TwitterProvider(BaseProvider):
         resp = http_requests.get(
             f'{TWITTER_API_BASE}/users/me',
             headers={'Authorization': f"Bearer {token_data.get('access_token', '')}"},
-            params={'user.fields': 'id,name,username,profile_image_url'},
+            params={'user.fields': 'id,name,username,profile_media_url'},
             timeout=15,
         )
         resp.raise_for_status()
@@ -48,7 +48,7 @@ class TwitterProvider(BaseProvider):
             'name': f"@{user.get('username', user['id'])}",
             'username': user.get('username', ''),
             'display_name': user.get('name', ''),
-            'picture_url': user.get('profile_image_url', '').replace('_normal', ''),
+            'picture_url': user.get('profile_media_url', '').replace('_normal', ''),
         }]
 
     def save_connection(self, user, selected_account, token_data, project=None):

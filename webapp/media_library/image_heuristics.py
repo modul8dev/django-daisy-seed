@@ -20,7 +20,7 @@ _PRODUCT_URL_HINTS = (
     '/catalog/product',
     '/media/catalog/product',
     '/documents/products/',
-    'product_image',
+    'product_media',
     'product_',
     '/sku',
     '/gallery',
@@ -38,7 +38,7 @@ _NON_PRODUCT_URL_HINTS = (
     'badge',
     'avatar',
     'newsletter',
-    'brand_image',
+    'brand_media',
     '/brand/',
     '/brands/',
     'social',
@@ -54,7 +54,7 @@ _NON_PRODUCT_URL_HINTS = (
 )
 
 _HIGH_QUALITY_URL_HINTS = (
-    'product_image',
+    'product_media',
     'zoom',
     'large',
     'full',
@@ -112,7 +112,7 @@ _MEASUREMENT_RE = re.compile(r'\b\d+(?:[.,]\d+)?\s?(g|kg|mg|ml|l|oz|lb|lbs|cl|pa
 _DOUBLE_FORMAT_RE = re.compile(r'\.(jpe?g|png|gif|webp|avif)\.(webp|avif)$', re.IGNORECASE)
 _DIMENSION_SUFFIX_RE = re.compile(r'([_-])\d{2,4}x\d{2,4}(?=\.[a-z0-9]+$)', re.IGNORECASE)
 _AT_SCALE_SUFFIX_RE = re.compile(r'@\dx(?=\.[a-z0-9]+$)', re.IGNORECASE)
-_STYLE_SEGMENT_RE = re.compile(r'/image_style/[^/]+/', re.IGNORECASE)
+_STYLE_SEGMENT_RE = re.compile(r'/media_style/[^/]+/', re.IGNORECASE)
 _GENERIC_STYLE_SEGMENT_RE = re.compile(r'/styles/[^/]+/', re.IGNORECASE)
 _QUALITY_DIMENSION_RE = re.compile(r'([_-])(\d{2,4})x(\d{2,4})(?=\.[a-z0-9]+$)', re.IGNORECASE)
 _PRODUCT_STYLE_SIZE_RE = re.compile(r'/product_(\d{2,4})(?:/|$)', re.IGNORECASE)
@@ -152,7 +152,7 @@ def _hosts_look_related(asset_host, page_host):
     )
 
 
-def _normalize_image_path(path):
+def _normalize_media_path(path):
     normalized = unquote(path or '').lower()
     normalized = _STYLE_SEGMENT_RE.sub('/', normalized)
     normalized = _GENERIC_STYLE_SEGMENT_RE.sub('/', normalized)
@@ -163,14 +163,14 @@ def _normalize_image_path(path):
     return normalized
 
 
-def _normalize_image_identity(image_url):
-    parsed = urlparse(image_url)
-    normalized_path = _normalize_image_path(parsed.path)
+def _normalize_media_identity(media_url):
+    parsed = urlparse(media_url)
+    normalized_path = _normalize_media_path(parsed.path)
     return f'{_domain_key(parsed.hostname)}{normalized_path}'
 
 
-def _is_obvious_non_product_asset(image_url):
-    parsed = urlparse(image_url)
+def _is_obvious_non_product_asset(media_url):
+    parsed = urlparse(media_url)
     path = unquote(parsed.path or '').lower()
     text = f'{(parsed.netloc or "").lower()}{path}'
     return path.endswith(('.svg', '.ico')) or any(hint in text for hint in _NON_PRODUCT_URL_HINTS)
@@ -202,8 +202,8 @@ def _page_product_score(page_url='', title='', description=''):
     return score
 
 
-def _image_variant_quality(image_url):
-    path = unquote(urlparse(image_url).path or '').lower()
+def _media_variant_quality(media_url):
+    path = unquote(urlparse(media_url).path or '').lower()
     quality = 0.0
 
     if any(hint in path for hint in _HIGH_QUALITY_URL_HINTS):
@@ -224,9 +224,9 @@ def _image_variant_quality(image_url):
     return quality
 
 
-def _image_candidate_score(image_url, page_url='', page_title='', page_description='', asset_page_count=1, total_pages=1):
+def _media_candidate_score(media_url, page_url='', page_title='', page_description='', asset_page_count=1, total_pages=1):
     page_score = _page_product_score(page_url=page_url, title=page_title, description=page_description)
-    parsed = urlparse(image_url)
+    parsed = urlparse(media_url)
     path = unquote(parsed.path or '').lower()
     text = f'{(parsed.netloc or "").lower()}{path}'
     page_host = urlparse(page_url).hostname or ''
@@ -243,7 +243,7 @@ def _image_candidate_score(image_url, page_url='', page_title='', page_descripti
         score += 1
     if any(hint in text for hint in _LOW_QUALITY_URL_HINTS):
         score -= 1
-    if _is_obvious_non_product_asset(image_url):
+    if _is_obvious_non_product_asset(media_url):
         score -= 5
 
     repeat_ratio = asset_page_count / max(total_pages, 1)
@@ -264,8 +264,8 @@ def _candidate_rank(candidate):
     )
 
 
-def _select_distinct_product_image_urls(
-    image_urls,
+def _select_distinct_product_media_urls(
+    media_urls,
     page_url='',
     page_title='',
     page_description='',
@@ -276,13 +276,13 @@ def _select_distinct_product_image_urls(
     page_score = _page_product_score(page_url=page_url, title=page_title, description=page_description)
     best_by_identity = {}
 
-    for index, raw_url in enumerate(image_urls):
+    for index, raw_url in enumerate(media_urls):
         url = (raw_url or '').strip()
         if not url or url.startswith('data:'):
             continue
 
         absolute_url = urljoin(page_url, url)
-        identity = _normalize_image_identity(absolute_url)
+        identity = _normalize_media_identity(absolute_url)
         if not identity:
             continue
 
@@ -291,7 +291,7 @@ def _select_distinct_product_image_urls(
             'url': absolute_url,
             'index': index,
             'asset_page_count': asset_page_count,
-            'score': _image_candidate_score(
+            'score': _media_candidate_score(
                 absolute_url,
                 page_url=page_url,
                 page_title=page_title,
@@ -299,7 +299,7 @@ def _select_distinct_product_image_urls(
                 asset_page_count=asset_page_count,
                 total_pages=total_pages,
             ),
-            'quality': _image_variant_quality(absolute_url),
+            'quality': _media_variant_quality(absolute_url),
             'obvious_non_product': _is_obvious_non_product_asset(absolute_url),
         }
 
@@ -334,15 +334,15 @@ def _select_distinct_product_image_urls(
 
 
 def _page_context_from_crawl_doc(doc, base_url):
-    image_urls = []
-    for image in getattr(doc, 'images', None) or []:
-        if isinstance(image, dict):
-            value = image.get('src') or image.get('url') or ''
+    media_urls = []
+    for media in getattr(doc, 'media', None) or []:
+        if isinstance(media, dict):
+            value = media.get('src') or media.get('url') or ''
         else:
-            value = getattr(image, 'src', None) or getattr(image, 'url', None) or str(image)
+            value = getattr(media, 'src', None) or getattr(media, 'url', None) or str(media)
         value = (value or '').strip()
         if value:
-            image_urls.append(value)
+            media_urls.append(value)
 
     metadata = getattr(doc, 'metadata', None) or {}
     if isinstance(metadata, dict):
@@ -361,5 +361,5 @@ def _page_context_from_crawl_doc(doc, base_url):
         'page_url': page_url,
         'title': title[:200],
         'description': description,
-        'image_urls': image_urls,
+        'media_urls': media_urls,
     }
