@@ -64,8 +64,10 @@ def scheduler_events(request):
     for post in qs:
         first_media = post.shared_media.first()
         thumbnail = None
+        is_video = False
         if first_media:
             thumbnail = first_media.media.url
+            is_video = first_media.media.is_video
 
         enabled_platforms = [
             p.platform
@@ -82,6 +84,7 @@ def scheduler_events(request):
                 'caption': (post.shared_text or '')[:120],
                 'platforms': enabled_platforms,
                 'thumbnail': thumbnail,
+                'isVideo': is_video,
                 'editUrl': reverse('social_media:post_edit', args=[post.pk]),
             },
         })

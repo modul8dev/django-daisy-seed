@@ -207,7 +207,8 @@ textarea {
   overflow: hidden;
   background: #f4f4f5;
 }
-.scheduler-event-thumb img {
+.scheduler-event-thumb img,
+.scheduler-event-thumb video {
   width: 100%;
   height: 100%;
   object-fit: cover;

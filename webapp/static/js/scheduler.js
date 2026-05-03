@@ -86,9 +86,13 @@ function schedulerApp() {
 
                     // Full-width media
                     if (props.thumbnail) {
-                        html += '<div class="scheduler-event-thumb">'
-                            + '<img src="' + self.escapeHtml(props.thumbnail) + '" alt="">'
-                            + '</div>';
+                        html += '<div class="scheduler-event-thumb">';
+                        if (props.isVideo) {
+                            html += '<video src="' + self.escapeHtml(props.thumbnail) + '" muted preload="metadata" playsinline class="scheduler-event-video"></video>';
+                        } else {
+                            html += '<img src="' + self.escapeHtml(props.thumbnail) + '" alt="">';
+                        }
+                        html += '</div>';
                     }
 
                     // Body: caption
