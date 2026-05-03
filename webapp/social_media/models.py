@@ -53,7 +53,7 @@ class SocialMediaPost(models.Model):
     )
     title = fields.TruncatingCharField(max_length=200)
     shared_text = models.TextField(blank=True)
-    topic = fields.TruncatingCharField(max_length=300, blank=True)
+    topic = fields.TruncatingCharField(max_length=2000, blank=True)
     post_type = fields.TruncatingCharField(max_length=20, choices=POST_TYPE_CHOICES, blank=True)
     ai_instruction = models.TextField(blank=True)
     status = fields.TruncatingCharField(max_length=20, choices=STATUS_CHOICES, default='draft')

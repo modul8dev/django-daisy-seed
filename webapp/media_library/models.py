@@ -30,7 +30,7 @@ class MediaGroup(models.Model):
         on_delete=models.CASCADE,
         related_name='media_groups',
     )
-    title = fields.TruncatingCharField(max_length=200)
+    title = fields.TruncatingCharField(max_length=2000)
     description = models.TextField(blank=True)
     source_url = models.URLField(blank=True, null=True)
     type = fields.TruncatingCharField(
